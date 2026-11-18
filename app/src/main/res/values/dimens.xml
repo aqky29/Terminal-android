@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="terminal_top_chrome_height">48dp</dimen>
+    <dimen name="terminal_top_chrome_padding_horizontal">4dp</dimen>
+    <dimen name="terminal_root_margin_horizontal">3dp</dimen>
+    <dimen name="terminal_tablet_tab_bar_padding_start">10dp</dimen>
+    <dimen name="terminal_tablet_tab_bar_padding_end">6dp</dimen>
+</resources>

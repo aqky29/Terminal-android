@@ -88,8 +88,14 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     public void onCreate() {
         onReloadProperties();
 
-        mActivity.getTerminalView().setTextSize(mActivity.getPreferences().getFontSize());
-        mActivity.getTerminalView().setKeepScreenOn(mActivity.getPreferences().shouldKeepScreenOn());
+        int fontSize = mActivity.getPreferences().getFontSize();
+        boolean keepScreenOn = mActivity.getPreferences().shouldKeepScreenOn();
+        mActivity.getPrimaryTerminalView().setTextSize(fontSize);
+        mActivity.getPrimaryTerminalView().setKeepScreenOn(keepScreenOn);
+        if (mActivity.getSecondaryTerminalView() != null) {
+            mActivity.getSecondaryTerminalView().setTextSize(fontSize);
+            mActivity.getSecondaryTerminalView().setKeepScreenOn(keepScreenOn);
+        }
     }
 
     /**
@@ -99,7 +105,10 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         // Set {@link TerminalView#TERMINAL_VIEW_KEY_LOGGING_ENABLED} value
         // Also required if user changed the preference from {@link TermuxSettings} activity and returns
         boolean isTerminalViewKeyLoggingEnabled = mActivity.getPreferences().isTerminalViewKeyLoggingEnabled();
-        mActivity.getTerminalView().setIsTerminalViewKeyLoggingEnabled(isTerminalViewKeyLoggingEnabled);
+        mActivity.getPrimaryTerminalView().setIsTerminalViewKeyLoggingEnabled(isTerminalViewKeyLoggingEnabled);
+        if (mActivity.getSecondaryTerminalView() != null) {
+            mActivity.getSecondaryTerminalView().setIsTerminalViewKeyLoggingEnabled(isTerminalViewKeyLoggingEnabled);
+        }
 
         // Piggyback on the terminal view key logging toggle for now, should add a separate toggle in future
         mActivity.getTermuxActivityRootView().setIsRootViewLoggingEnabled(isTerminalViewKeyLoggingEnabled);
@@ -231,7 +240,10 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     @Override
     public void copyModeChanged(boolean copyMode) {
         // Disable drawer while copying.
-        mActivity.getDrawer().setDrawerLockMode(copyMode ? DrawerLayout.LOCK_MODE_LOCKED_CLOSED : DrawerLayout.LOCK_MODE_UNLOCKED);
+        androidx.drawerlayout.widget.DrawerLayout drawer = mActivity.getDrawer();
+        if (drawer != null) {
+            drawer.setDrawerLockMode(copyMode ? DrawerLayout.LOCK_MODE_LOCKED_CLOSED : DrawerLayout.LOCK_MODE_UNLOCKED);
+        }
     }
 
 
@@ -254,9 +266,10 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP || unicodeChar == 'p' /* previous */) {
                 mTermuxTerminalSessionActivityClient.switchToSession(false);
             } else if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                mActivity.getDrawer().openDrawer(Gravity.LEFT);
+                DrawerLayout drawer = mActivity.getDrawer();
+                if (drawer != null) drawer.openDrawer(Gravity.LEFT);
             } else if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-                mActivity.getDrawer().closeDrawers();
+                mActivity.closeDrawersIfPresent();
             } else if (unicodeChar == 'k'/* keyboard */) {
                 onToggleSoftKeyboardRequest();
             } else if (unicodeChar == 'm'/* menu */) {
@@ -518,7 +531,11 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
     public void changeFontSize(boolean increase) {
         mActivity.getPreferences().changeFontSize(increase);
-        mActivity.getTerminalView().setTextSize(mActivity.getPreferences().getFontSize());
+        int fontSize = mActivity.getPreferences().getFontSize();
+        mActivity.getPrimaryTerminalView().setTextSize(fontSize);
+        if (mActivity.getSecondaryTerminalView() != null) {
+            mActivity.getSecondaryTerminalView().setTextSize(fontSize);
+        }
     }
 
 
@@ -609,16 +626,17 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             }
         }
 
-        mActivity.getTerminalView().setOnFocusChangeListener(new View.OnFocusChangeListener() {
+        View.OnFocusChangeListener focusListener = new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View view, boolean hasFocus) {
-                // Force show soft keyboard if TerminalView or toolbar text input view has
-                // focus and close it if they don't
+                // Force show soft keyboard if any TerminalView or toolbar text input view has
+                // focus and close it if none do
+                boolean anyTerminalHasFocus = hasFocus || mActivity.hasAnyTerminalViewFocus();
                 boolean textInputViewHasFocus = false;
-                final EditText textInputView =  mActivity.findViewById(R.id.terminal_toolbar_text_input);
+                final EditText textInputView = mActivity.findViewById(R.id.terminal_toolbar_text_input);
                 if (textInputView != null) textInputViewHasFocus = textInputView.hasFocus();
 
-                if (hasFocus || textInputViewHasFocus) {
+                if (anyTerminalHasFocus || textInputViewHasFocus) {
                     if (mShowSoftKeyboardIgnoreOnce) {
                         mShowSoftKeyboardIgnoreOnce = false; return;
                     }
@@ -627,9 +645,13 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
                     Logger.logVerbose(LOG_TAG, "Hiding soft keyboard on focus change");
                 }
 
-                KeyboardUtils.setSoftKeyboardVisibility(getShowSoftKeyboardRunnable(), mActivity, mActivity.getTerminalView(), hasFocus || textInputViewHasFocus);
+                KeyboardUtils.setSoftKeyboardVisibility(getShowSoftKeyboardRunnable(), mActivity, mActivity.getTerminalView(), anyTerminalHasFocus || textInputViewHasFocus);
             }
-        });
+        };
+        mActivity.getPrimaryTerminalView().setOnFocusChangeListener(focusListener);
+        if (mActivity.getSecondaryTerminalView() != null) {
+            mActivity.getSecondaryTerminalView().setOnFocusChangeListener(focusListener);
+        }
 
         // Do not force show soft keyboard if termux-reload-settings command was run with hardware keyboard
         // or soft keyboard is to be hidden or is disabled

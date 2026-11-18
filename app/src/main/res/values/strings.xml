@@ -42,6 +42,16 @@
 
 
     <!-- Terminal Sidebar and Shortcuts -->
+    <string name="action_open_sessions_drawer">Sessions</string>
+    <string name="action_close_session_tab">Close session</string>
+    <string name="action_split_tab">Split tab</string>
+    <string name="action_open_in_left_pane">Move to left pane</string>
+    <string name="action_open_in_right_pane">Move to right pane</string>
+    <string name="action_close_split_pane">Close split panel</string>
+    <string name="action_rename_session">Rename</string>
+    <string name="action_close_tab">Close</string>
+    <string name="label_pane_active">Active</string>
+    <string name="title_default_session">Session</string>
     <string name="action_new_session">New session</string>
     <string name="action_new_session_failsafe">Failsafe</string>
     <string name="title_max_terminals_reached">Max terminals reached</string>

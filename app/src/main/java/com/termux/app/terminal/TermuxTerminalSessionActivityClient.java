@@ -8,6 +8,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
@@ -126,7 +127,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     public void onTextChanged(@NonNull TerminalSession changedSession) {
         if (!mActivity.isVisible()) return;
 
-        if (mActivity.getCurrentSession() == changedSession) mActivity.getTerminalView().onScreenUpdated();
+        com.termux.view.TerminalView primary = mActivity.getPrimaryTerminalView();
+        if (primary != null && primary.getCurrentSession() == changedSession) {
+            primary.onScreenUpdated();
+        }
+        com.termux.view.TerminalView secondary = mActivity.getSecondaryTerminalView();
+        if (secondary != null && mActivity.isSplitPaneActive() && secondary.getCurrentSession() == changedSession) {
+            secondary.onScreenUpdated();
+        }
     }
 
     @Override
@@ -225,8 +233,15 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     @Override
     public void onColorsChanged(@NonNull TerminalSession changedSession) {
-        if (mActivity.getCurrentSession() == changedSession)
+        com.termux.view.TerminalView primary = mActivity.getPrimaryTerminalView();
+        com.termux.view.TerminalView secondary = mActivity.getSecondaryTerminalView();
+        boolean isPrimary = primary != null && primary.getCurrentSession() == changedSession;
+        boolean isSecondary = secondary != null && mActivity.isSplitPaneActive() && secondary.getCurrentSession() == changedSession;
+        if (isPrimary || isSecondary) {
             updateBackgroundColor();
+            if (primary != null) primary.invalidate();
+            if (secondary != null && mActivity.isSplitPaneActive()) secondary.invalidate();
+        }
     }
 
     @Override
@@ -370,6 +385,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     }
 
     public void addNewSession(boolean isFailSafe, String sessionName) {
+        addNewSessionInPane(isFailSafe, sessionName, mActivity.isSecondaryPaneFocused());
+    }
+
+    public void addNewSessionInPane(boolean isFailSafe, String sessionName, boolean targetSecondaryPane) {
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
@@ -390,9 +409,16 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             if (newTermuxSession == null) return;
 
             TerminalSession newTerminalSession = newTermuxSession.getTerminalSession();
-            setCurrentSession(newTerminalSession);
+            if (targetSecondaryPane && mActivity.getSecondaryTerminalView() != null) {
+                mActivity.openSessionInPane(newTerminalSession, true);
+                notifyOfSessionChange();
+                setCurrentStoredSession();
+                updateBackgroundColor();
+            } else {
+                setCurrentSession(newTerminalSession);
+            }
 
-            mActivity.getDrawer().closeDrawers();
+            mActivity.closeDrawersIfPresent();
         }
     }
 
@@ -443,20 +469,52 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
 
+        com.termux.view.TerminalView primary = mActivity.getPrimaryTerminalView();
+        com.termux.view.TerminalView secondary = mActivity.getSecondaryTerminalView();
+        boolean wasPrimary = primary != null && primary.getCurrentSession() == finishedSession;
+        boolean wasSecondary = secondary != null && mActivity.isSplitPaneActive() && secondary.getCurrentSession() == finishedSession;
+
         int index = service.removeTermuxSession(finishedSession);
 
         int size = service.getTermuxSessionsSize();
         if (size == 0) {
             // There are no sessions to show, so finish the activity.
             mActivity.finishActivityIfNotFinishing();
-        } else {
-            if (index >= size) {
-                index = size - 1;
-            }
-            TermuxSession termuxSession = service.getTermuxSession(index);
-            if (termuxSession != null)
-                setCurrentSession(termuxSession.getTerminalSession());
+            return;
         }
+
+        if (index >= size) {
+            index = size - 1;
+        }
+        TermuxSession fallbackTermuxSession = service.getTermuxSession(index);
+        TerminalSession fallbackSession = fallbackTermuxSession != null ? fallbackTermuxSession.getTerminalSession() : null;
+
+        if (mActivity.isSplitPaneActive()) {
+            if (size == 1 && fallbackSession != null) {
+                if (primary != null) primary.attachSession(fallbackSession);
+                mActivity.closeSplitPanel();
+                return;
+            }
+            if (wasPrimary && fallbackSession != null) {
+                if (primary != null) primary.attachSession(fallbackSession);
+            }
+            if (wasSecondary && fallbackSession != null) {
+                TerminalSession primarySession = primary != null ? primary.getCurrentSession() : null;
+                TerminalSession alt = fallbackSession;
+                for (TermuxSession ts : service.getTermuxSessions()) {
+                    if (ts.getTerminalSession() != null && ts.getTerminalSession() != primarySession) {
+                        alt = ts.getTerminalSession();
+                        break;
+                    }
+                }
+                secondary.attachSession(alt);
+            }
+            updateBackgroundColor();
+            return;
+        }
+
+        if (fallbackSession != null)
+            setCurrentSession(fallbackSession);
     }
 
     public void termuxSessionListNotifyUpdated() {
@@ -519,7 +577,10 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             updateBackgroundColor();
 
             final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0) ? Typeface.createFromFile(fontFile) : Typeface.MONOSPACE;
-            mActivity.getTerminalView().setTypeface(newTypeface);
+            if (mActivity.getPrimaryTerminalView() != null)
+                mActivity.getPrimaryTerminalView().setTypeface(newTypeface);
+            if (mActivity.getSecondaryTerminalView() != null)
+                mActivity.getSecondaryTerminalView().setTypeface(newTypeface);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);
         }
@@ -541,7 +602,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
 
         View leftDrawer = mActivity.findViewById(R.id.left_drawer);
-        if (leftDrawer != null) {
+        if (leftDrawer != null && backgroundColor != Color.BLACK) {
             leftDrawer.setBackgroundColor(backgroundColor);
         }
 

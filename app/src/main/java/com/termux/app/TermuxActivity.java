@@ -12,18 +12,29 @@ import android.content.ServiceConnection;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.text.TextUtils;
+import android.transition.ChangeBounds;
+import android.transition.Fade;
+import android.transition.TransitionManager;
+import android.transition.TransitionSet;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.PopupMenu;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.termux.R;
@@ -51,6 +62,7 @@ import com.termux.shared.termux.interact.TextInputDialogUtils;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
+import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.theme.TermuxThemeUtils;
 import com.termux.shared.theme.NightMode;
 import com.termux.shared.view.ViewUtils;
@@ -62,6 +74,7 @@ import com.termux.view.TerminalViewClient;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
@@ -87,9 +100,26 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     TermuxService mTermuxService;
 
     /**
-     * The {@link TerminalView} shown in  {@link TermuxActivity} that displays the terminal.
+     * The {@link TerminalView} shown in {@link TermuxActivity} that displays the primary terminal.
      */
     TerminalView mTerminalView;
+
+    /**
+     * Optional secondary {@link TerminalView} for tablet split panel mode.
+     */
+    @Nullable
+    TerminalView mSecondaryTerminalView;
+
+    /**
+     * Points to whichever {@link TerminalView} pane currently has active focus.
+     */
+    TerminalView mActiveTerminalView;
+
+    private boolean mIsSplitMode = false;
+    private float mSplitRatio = 0.5f;
+    private boolean mSavedSplitActive = false;
+    private boolean mSavedSecondaryActive = false;
+    private String mSavedSecondarySessionHandle = null;
 
     /**
      *  The {@link TerminalViewClient} interface implementation to allow for communication between
@@ -194,6 +224,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private static final String ARG_TERMINAL_TOOLBAR_TEXT_INPUT = "terminal_toolbar_text_input";
     private static final String ARG_ACTIVITY_RECREATED = "activity_recreated";
+    private static final String ARG_SPLIT_ACTIVE = "split_active";
+    private static final String ARG_SPLIT_RATIO = "split_ratio";
+    private static final String ARG_SECONDARY_ACTIVE = "secondary_active";
+    private static final String ARG_SECONDARY_SESSION_HANDLE = "secondary_session_handle";
 
     private static final String LOG_TAG = "TermuxActivity";
 
@@ -202,8 +236,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Logger.logDebug(LOG_TAG, "onCreate");
         mIsOnResumeAfterOnCreate = true;
 
-        if (savedInstanceState != null)
+        if (savedInstanceState != null) {
             mIsActivityRecreated = savedInstanceState.getBoolean(ARG_ACTIVITY_RECREATED, false);
+            mSavedSplitActive = savedInstanceState.getBoolean(ARG_SPLIT_ACTIVE, false);
+            mSplitRatio = savedInstanceState.getFloat(ARG_SPLIT_RATIO, 0.5f);
+            mSavedSecondaryActive = savedInstanceState.getBoolean(ARG_SECONDARY_ACTIVE, false);
+            mSavedSecondarySessionHandle = savedInstanceState.getString(ARG_SECONDARY_SESSION_HANDLE, null);
+        }
 
         // Delete ReportInfo serialized object files from cache older than 14 days
         ReportActivity.deleteReportInfoFilesOlderThanXDays(this, 14, false);
@@ -254,7 +293,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setToggleKeyboardView();
 
+        setOpenDrawerButtonView();
+
         registerForContextMenu(mTerminalView);
+        if (mSecondaryTerminalView != null) {
+            registerForContextMenu(mSecondaryTerminalView);
+        }
 
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
 
@@ -344,7 +388,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         removeTermuxActivityRootViewGlobalLayoutListener();
 
         unregisterTermuxActivityBroadcastReceiver();
-        getDrawer().closeDrawers();
+        closeDrawersIfPresent();
     }
 
     @Override
@@ -375,6 +419,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         super.onSaveInstanceState(savedInstanceState);
         saveTerminalToolbarTextInput(savedInstanceState);
         savedInstanceState.putBoolean(ARG_ACTIVITY_RECREATED, true);
+        savedInstanceState.putBoolean(ARG_SPLIT_ACTIVE, isSplitPaneActive());
+        savedInstanceState.putFloat(ARG_SPLIT_RATIO, mSplitRatio);
+        savedInstanceState.putBoolean(ARG_SECONDARY_ACTIVE, isSecondaryPaneFocused());
+        if (mSecondaryTerminalView != null && mSecondaryTerminalView.getCurrentSession() != null) {
+            savedInstanceState.putString(ARG_SECONDARY_SESSION_HANDLE, mSecondaryTerminalView.getCurrentSession().mHandle);
+        }
     }
 
 
@@ -432,6 +482,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
         mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
+        restoreSplitStateIfNeeded();
+        updateSessionChrome();
     }
 
     @Override
@@ -494,6 +546,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Set termux terminal view
         mTerminalView = findViewById(R.id.terminal_view);
         mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
+        mActiveTerminalView = mTerminalView;
+
+        mSecondaryTerminalView = findViewById(R.id.terminal_view_secondary);
+        if (mSecondaryTerminalView != null) {
+            mSecondaryTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
+        }
+
+        setupSplitPaneInteractions();
 
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
@@ -504,6 +564,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private void setTermuxSessionsListView() {
         ListView termuxSessionsListView = findViewById(R.id.terminal_sessions_list);
+        if (termuxSessionsListView == null) return;
         mTermuxSessionListViewController = new TermuxSessionsListViewController(this, mTermuxService.getTermuxSessions());
         termuxSessionsListView.setAdapter(mTermuxSessionListViewController);
         termuxSessionsListView.setOnItemClickListener(mTermuxSessionListViewController);
@@ -549,6 +610,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         final boolean showNow = mPreferences.toogleShowTerminalToolbar();
         Logger.showToast(this, (showNow ? getString(R.string.msg_enabling_terminal_toolbar) : getString(R.string.msg_disabling_terminal_toolbar)), true);
+        ViewGroup rootRelative = findViewById(R.id.activity_termux_root_relative_layout);
+        if (rootRelative != null) {
+            TransitionSet transition = new TransitionSet()
+                .addTransition(new ChangeBounds())
+                .addTransition(new Fade())
+                .setDuration(150)
+                .setInterpolator(new DecelerateInterpolator());
+            TransitionManager.beginDelayedTransition(rootRelative, transition);
+        }
         terminalToolbarViewPager.setVisibility(showNow ? View.VISIBLE : View.GONE);
         if (showNow && isTerminalToolbarTextInputViewSelected()) {
             // Focus the text input view if just revealed.
@@ -569,16 +639,30 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
     private void setSettingsButtonView() {
-        ImageButton settingsButton = findViewById(R.id.settings_button);
-        settingsButton.setOnClickListener(v -> {
-            ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));
-        });
+        attachSettingsClickListener(findViewById(R.id.settings_button));
+        attachSettingsClickListener(findViewById(R.id.top_settings_button));
+    }
+
+    private void attachSettingsClickListener(@Nullable View settingsButton) {
+        if (settingsButton == null) return;
+        settingsButton.setOnClickListener(v ->
+            ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class))
+        );
     }
 
     private void setNewSessionButtonView() {
-        View newSessionButton = findViewById(R.id.new_session_button);
-        newSessionButton.setOnClickListener(v -> mTermuxTerminalSessionActivityClient.addNewSession(false, null));
+        attachNewSessionListeners(findViewById(R.id.new_session_button));
+        attachNewSessionListeners(findViewById(R.id.top_new_session_button));
+    }
+
+    private void attachNewSessionListeners(@Nullable View newSessionButton) {
+        if (newSessionButton == null) return;
+        newSessionButton.setOnClickListener(v -> {
+            if (mTermuxTerminalSessionActivityClient != null)
+                mTermuxTerminalSessionActivityClient.addNewSession(false, null);
+        });
         newSessionButton.setOnLongClickListener(v -> {
+            if (mTermuxTerminalSessionActivityClient == null) return true;
             TextInputDialogUtils.textInput(TermuxActivity.this, R.string.title_create_named_session, null,
                 R.string.action_create_named_session_confirm, text -> mTermuxTerminalSessionActivityClient.addNewSession(false, text),
                 R.string.action_new_session_failsafe, text -> mTermuxTerminalSessionActivityClient.addNewSession(true, text),
@@ -588,15 +672,49 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void setToggleKeyboardView() {
-        findViewById(R.id.toggle_keyboard_button).setOnClickListener(v -> {
-            mTermuxTerminalViewClient.onToggleSoftKeyboardRequest();
-            getDrawer().closeDrawers();
-        });
+        attachKeyboardToggleListeners(findViewById(R.id.toggle_keyboard_button), true);
+        attachKeyboardToggleListeners(findViewById(R.id.top_keyboard_button), false);
+    }
 
-        findViewById(R.id.toggle_keyboard_button).setOnLongClickListener(v -> {
+    private void attachKeyboardToggleListeners(@Nullable View toggleButton, boolean closeDrawerOnClick) {
+        if (toggleButton == null) return;
+        toggleButton.setOnClickListener(v -> {
+            if (mTermuxTerminalViewClient != null)
+                mTermuxTerminalViewClient.onToggleSoftKeyboardRequest();
+            if (closeDrawerOnClick)
+                closeDrawersIfPresent();
+        });
+        toggleButton.setOnLongClickListener(v -> {
             toggleTerminalToolbar();
             return true;
         });
+    }
+
+    private void setOpenDrawerButtonView() {
+        View openDrawerButton = findViewById(R.id.open_drawer_button);
+        if (openDrawerButton != null) {
+            openDrawerButton.setOnClickListener(v -> openSessionsDrawer());
+        }
+        // On phone layouts without a horizontal tab strip, tapping the active session title opens the sessions drawer.
+        View activeSessionTitle = findViewById(R.id.active_session_title);
+        if (activeSessionTitle != null && findViewById(R.id.session_tabs_container) == null) {
+            activeSessionTitle.setOnClickListener(v -> openSessionsDrawer());
+        }
+    }
+
+    @SuppressLint("RtlHardcoded")
+    private void openSessionsDrawer() {
+        DrawerLayout drawer = getDrawer();
+        if (drawer != null) {
+            drawer.openDrawer(Gravity.LEFT);
+        }
+    }
+
+    public void closeDrawersIfPresent() {
+        DrawerLayout drawer = getDrawer();
+        if (drawer != null) {
+            drawer.closeDrawers();
+        }
     }
 
 
@@ -606,8 +724,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @SuppressLint("RtlHardcoded")
     @Override
     public void onBackPressed() {
-        if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
-            getDrawer().closeDrawers();
+        DrawerLayout drawer = getDrawer();
+        if (drawer != null && drawer.isDrawerOpen(Gravity.LEFT)) {
+            drawer.closeDrawers();
         } else {
             finishActivityIfNotFinishing();
         }
@@ -898,6 +1017,392 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void termuxSessionListNotifyUpdated() {
         if (mTermuxSessionListViewController != null)
             mTermuxSessionListViewController.notifyDataSetChanged();
+        updateSessionChrome();
+    }
+
+    /**
+     * Syncs the active session title in the top chrome bar and the tablet horizontal session tabs.
+     */
+    private void updateSessionChrome() {
+        TerminalSession currentSession = getCurrentSession();
+        TextView activeTitleView = findViewById(R.id.active_session_title);
+        if (activeTitleView != null) {
+            activeTitleView.setText(formatSessionDisplayLabel(currentSession, -1));
+        }
+
+        LinearLayout tabsContainer = findViewById(R.id.session_tabs_container);
+        if (tabsContainer == null || mTermuxService == null) return;
+
+        tabsContainer.removeAllViews();
+        java.util.List<TermuxSession> sessions = mTermuxService.getTermuxSessions();
+        final HorizontalScrollView tabsScroll = findViewById(R.id.session_tabs_scroll);
+        int scrollWidth = tabsScroll != null ? tabsScroll.getWidth() : 0;
+        int minTabWidthPx = Math.round(140 * getResources().getDisplayMetrics().density);
+        boolean stretchTabs = sessions.isEmpty() || scrollWidth <= 0 || (sessions.size() * minTabWidthPx <= scrollWidth);
+
+        for (int i = 0; i < sessions.size(); i++) {
+            final TerminalSession session = sessions.get(i).getTerminalSession();
+            if (session == null) continue;
+
+            View tabView = getLayoutInflater().inflate(R.layout.item_terminal_session_tab, tabsContainer, false);
+            LinearLayout.LayoutParams tabParams = stretchTabs
+                ? new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+                : new LinearLayout.LayoutParams(minTabWidthPx, ViewGroup.LayoutParams.MATCH_PARENT);
+            tabView.setLayoutParams(tabParams);
+            boolean isActive = (session == currentSession);
+            boolean isRunning = session.isRunning();
+
+            tabView.setBackgroundResource(isActive ? R.drawable.bg_tab_active : R.drawable.bg_tab_inactive);
+
+            View dotView = tabView.findViewById(R.id.session_tab_dot);
+            if (!isRunning && session.getExitStatus() != 0) {
+                dotView.setBackgroundResource(R.drawable.dot_session_error);
+            } else {
+                dotView.setBackgroundResource(isActive ? R.drawable.dot_session_active : R.drawable.dot_session_inactive);
+            }
+
+            TextView tabTitle = tabView.findViewById(R.id.session_tab_title);
+            tabTitle.setText(formatSessionDisplayLabel(session, i));
+            tabTitle.setTextColor(ContextCompat.getColor(this,
+                isActive ? R.color.terminal_text_primary : R.color.terminal_text_secondary));
+            tabTitle.setTypeface(null, isActive ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+
+            tabView.setOnClickListener(v -> {
+                if (mTermuxTerminalSessionActivityClient != null)
+                    mTermuxTerminalSessionActivityClient.setCurrentSession(session);
+            });
+            tabView.setOnLongClickListener(v -> {
+                showTabContextMenu(tabView, session);
+                return true;
+            });
+
+            ImageButton closeTabButton = tabView.findViewById(R.id.close_tab_button);
+            closeTabButton.setOnClickListener(v -> {
+                if (session.isRunning()) {
+                    showKillSessionDialog(session);
+                } else if (mTermuxTerminalSessionActivityClient != null) {
+                    mTermuxTerminalSessionActivityClient.removeFinishedSession(session);
+                }
+            });
+
+            tabsContainer.addView(tabView);
+
+            if (isActive && tabsScroll != null) {
+                tabsScroll.post(() -> {
+                    int targetX = tabView.getLeft() - (tabsScroll.getWidth() - tabView.getWidth()) / 2;
+                    tabsScroll.smoothScrollTo(Math.max(0, targetX), 0);
+                });
+            }
+        }
+
+        updateSplitPaneChrome();
+    }
+
+    private void showTabContextMenu(@NonNull View anchor, @NonNull TerminalSession session) {
+        PopupMenu popup = new PopupMenu(this, anchor);
+        final int MENU_SPLIT_TAB = 1;
+        final int MENU_MOVE_LEFT = 2;
+        final int MENU_MOVE_RIGHT = 3;
+        final int MENU_CLOSE_SPLIT = 4;
+        final int MENU_RENAME = 5;
+        final int MENU_CLOSE = 6;
+
+        if (mSecondaryTerminalView != null) {
+            if (!isSplitPaneActive()) {
+                popup.getMenu().add(0, MENU_SPLIT_TAB, 0, R.string.action_split_tab);
+            } else {
+                popup.getMenu().add(0, MENU_MOVE_LEFT, 0, R.string.action_open_in_left_pane);
+                popup.getMenu().add(0, MENU_MOVE_RIGHT, 1, R.string.action_open_in_right_pane);
+                popup.getMenu().add(0, MENU_CLOSE_SPLIT, 2, R.string.action_close_split_pane);
+            }
+        }
+        popup.getMenu().add(0, MENU_RENAME, 3, R.string.action_rename_session);
+        popup.getMenu().add(0, MENU_CLOSE, 4, R.string.action_close_tab);
+
+        popup.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case MENU_SPLIT_TAB:
+                    openSplitWithSession(session);
+                    return true;
+                case MENU_MOVE_LEFT:
+                    openSessionInPane(session, false);
+                    return true;
+                case MENU_MOVE_RIGHT:
+                    openSessionInPane(session, true);
+                    return true;
+                case MENU_CLOSE_SPLIT:
+                    closeSplitPanel();
+                    return true;
+                case MENU_RENAME:
+                    if (mTermuxTerminalSessionActivityClient != null)
+                        mTermuxTerminalSessionActivityClient.renameSession(session);
+                    return true;
+                case MENU_CLOSE:
+                    if (session.isRunning()) {
+                        showKillSessionDialog(session);
+                    } else if (mTermuxTerminalSessionActivityClient != null) {
+                        mTermuxTerminalSessionActivityClient.removeFinishedSession(session);
+                    }
+                    return true;
+                default:
+                    return false;
+            }
+        });
+        popup.show();
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupSplitPaneInteractions() {
+        if (mTerminalView != null) {
+            mTerminalView.setOnTouchListener((v, event) -> {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    setActivePane(false);
+                }
+                return false;
+            });
+        }
+        if (mSecondaryTerminalView != null) {
+            mSecondaryTerminalView.setOnTouchListener((v, event) -> {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    setActivePane(true);
+                }
+                return false;
+            });
+        }
+        View paneLeftBar = findViewById(R.id.pane_left_bar);
+        if (paneLeftBar != null) {
+            paneLeftBar.setOnClickListener(v -> setActivePane(false));
+        }
+        View paneRightBar = findViewById(R.id.pane_right_bar);
+        if (paneRightBar != null) {
+            paneRightBar.setOnClickListener(v -> setActivePane(true));
+        }
+        View closeSplitButton = findViewById(R.id.close_split_button);
+        if (closeSplitButton != null) {
+            closeSplitButton.setOnClickListener(v -> closeSplitPanel());
+        }
+
+        final View splitDivider = findViewById(R.id.split_divider);
+        final LinearLayout panesContainer = findViewById(R.id.panes_container);
+        if (splitDivider != null && panesContainer != null) {
+            splitDivider.setOnTouchListener((v, event) -> {
+                if (!isSplitPaneActive()) return false;
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                    case MotionEvent.ACTION_MOVE: {
+                        int totalWidth = panesContainer.getWidth();
+                        if (totalWidth > 0) {
+                            int[] loc = new int[2];
+                            panesContainer.getLocationOnScreen(loc);
+                            float ratio = (event.getRawX() - loc[0]) / (float) totalWidth;
+                            mSplitRatio = Math.max(0.25f, Math.min(0.75f, ratio));
+                            applySplitWeights();
+                        }
+                        return true;
+                    }
+                    default:
+                        return false;
+                }
+            });
+        }
+    }
+
+    private void restoreSplitStateIfNeeded() {
+        if (mSecondaryTerminalView == null || mTermuxService == null || !mSavedSplitActive) return;
+        TerminalSession secondarySession = !TextUtils.isEmpty(mSavedSecondarySessionHandle)
+            ? mTermuxService.getTerminalSessionForHandle(mSavedSecondarySessionHandle)
+            : null;
+        if (secondarySession == null && mTermuxService.getTermuxSessionsSize() > 1) {
+            TerminalSession primarySession = mTerminalView.getCurrentSession();
+            for (TermuxSession ts : mTermuxService.getTermuxSessions()) {
+                if (ts.getTerminalSession() != null && ts.getTerminalSession() != primarySession) {
+                    secondarySession = ts.getTerminalSession();
+                    break;
+                }
+            }
+        }
+        if (secondarySession != null) {
+            mIsSplitMode = true;
+            mSecondaryTerminalView.attachSession(secondarySession);
+            applySplitVisibility(false);
+            setActivePane(mSavedSecondaryActive);
+        }
+        mSavedSplitActive = false;
+    }
+
+    public void openSplitWithSession(@NonNull TerminalSession selectedSession) {
+        if (mSecondaryTerminalView == null || mTermuxService == null || mTermuxTerminalSessionActivityClient == null)
+            return;
+
+        TerminalSession leftSession = mTerminalView.getCurrentSession();
+        if (selectedSession == leftSession) {
+            // Look for another existing session for the right pane, or create a new one.
+            TerminalSession otherSession = null;
+            for (TermuxSession ts : mTermuxService.getTermuxSessions()) {
+                if (ts.getTerminalSession() != null && ts.getTerminalSession() != leftSession) {
+                    otherSession = ts.getTerminalSession();
+                    break;
+                }
+            }
+            mIsSplitMode = true;
+            applySplitVisibility(true);
+            if (otherSession != null) {
+                openSessionInPane(otherSession, true);
+            } else {
+                setActivePane(true);
+                mTermuxTerminalSessionActivityClient.addNewSessionInPane(false, null, true);
+            }
+        } else {
+            mIsSplitMode = true;
+            applySplitVisibility(true);
+            openSessionInPane(selectedSession, true);
+        }
+    }
+
+    public void openSessionInPane(@NonNull TerminalSession session, boolean secondaryPane) {
+        if (secondaryPane && mSecondaryTerminalView != null) {
+            mIsSplitMode = true;
+            applySplitVisibility(true);
+            mSecondaryTerminalView.attachSession(session);
+            setActivePane(true);
+        } else if (mTerminalView != null) {
+            mTerminalView.attachSession(session);
+            setActivePane(false);
+        }
+    }
+
+    public void closeSplitPanel() {
+        if (!mIsSplitMode) return;
+        if (isSecondaryPaneFocused() && mSecondaryTerminalView != null && mSecondaryTerminalView.getCurrentSession() != null) {
+            mTerminalView.attachSession(mSecondaryTerminalView.getCurrentSession());
+        }
+        mIsSplitMode = false;
+        mActiveTerminalView = mTerminalView;
+        applySplitVisibility(true);
+        if (mTerminalView != null) {
+            mTerminalView.requestFocus();
+        }
+        if (mSecondaryTerminalView != null) {
+            mSecondaryTerminalView.setTerminalCursorBlinkerState(false, true);
+        }
+        if (mTermuxTerminalSessionActivityClient != null) {
+            mTermuxTerminalSessionActivityClient.updateBackgroundColor();
+        }
+        updateSessionChrome();
+    }
+
+    private void applySplitVisibility(boolean animate) {
+        LinearLayout panesContainer = findViewById(R.id.panes_container);
+        View paneLeftBar = findViewById(R.id.pane_left_bar);
+        View splitDivider = findViewById(R.id.split_divider);
+        View paneRightContainer = findViewById(R.id.pane_right_container);
+        if (panesContainer == null) return;
+
+        if (animate) {
+            TransitionSet transition = new TransitionSet()
+                .addTransition(new ChangeBounds())
+                .addTransition(new Fade())
+                .setDuration(180)
+                .setInterpolator(new DecelerateInterpolator());
+            TransitionManager.beginDelayedTransition(panesContainer, transition);
+        }
+
+        boolean show = isSplitPaneActive();
+        if (paneLeftBar != null) paneLeftBar.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (splitDivider != null) splitDivider.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (paneRightContainer != null) paneRightContainer.setVisibility(show ? View.VISIBLE : View.GONE);
+        applySplitWeights();
+    }
+
+    private void applySplitWeights() {
+        View paneLeftContainer = findViewById(R.id.pane_left_container);
+        View paneRightContainer = findViewById(R.id.pane_right_container);
+        if (paneLeftContainer == null || paneRightContainer == null) return;
+
+        LinearLayout.LayoutParams leftLp = (LinearLayout.LayoutParams) paneLeftContainer.getLayoutParams();
+        LinearLayout.LayoutParams rightLp = (LinearLayout.LayoutParams) paneRightContainer.getLayoutParams();
+        if (isSplitPaneActive()) {
+            leftLp.weight = mSplitRatio;
+            rightLp.weight = 1.0f - mSplitRatio;
+        } else {
+            leftLp.weight = 1.0f;
+            rightLp.weight = 0.0f;
+        }
+        paneLeftContainer.setLayoutParams(leftLp);
+        paneRightContainer.setLayoutParams(rightLp);
+    }
+
+    public void setActivePane(boolean secondary) {
+        if (secondary && !isSplitPaneActive()) return;
+        TerminalView target = secondary ? mSecondaryTerminalView : mTerminalView;
+        if (target == null) return;
+
+        boolean changed = (mActiveTerminalView != target);
+        mActiveTerminalView = target;
+        target.requestFocus();
+
+        if (mTerminalView != null) {
+            mTerminalView.setTerminalCursorBlinkerState(!secondary && mIsVisible, true);
+        }
+        if (mSecondaryTerminalView != null && isSplitPaneActive()) {
+            mSecondaryTerminalView.setTerminalCursorBlinkerState(secondary && mIsVisible, true);
+        }
+
+        if (changed) {
+            if (mTermuxTerminalSessionActivityClient != null) {
+                mTermuxTerminalSessionActivityClient.updateBackgroundColor();
+            } else {
+                updateSessionChrome();
+            }
+        }
+    }
+
+    private void updateSplitPaneChrome() {
+        if (!isSplitPaneActive()) return;
+        boolean secondaryFocused = isSecondaryPaneFocused();
+
+        View paneLeftBar = findViewById(R.id.pane_left_bar);
+        View paneLeftDot = findViewById(R.id.pane_left_dot);
+        TextView paneLeftLabel = findViewById(R.id.pane_left_label);
+        TextView paneLeftFocus = findViewById(R.id.pane_left_focus);
+        if (paneLeftBar != null && paneLeftDot != null && paneLeftLabel != null && paneLeftFocus != null) {
+            paneLeftBar.setBackgroundColor(!secondaryFocused ? 0xFF2D2D2D : 0xFF212121);
+            paneLeftDot.setBackgroundResource(!secondaryFocused ? R.drawable.dot_session_active : R.drawable.dot_session_inactive);
+            paneLeftLabel.setText(formatSessionDisplayLabel(mTerminalView != null ? mTerminalView.getCurrentSession() : null, -1));
+            paneLeftLabel.setTextColor(ContextCompat.getColor(this,
+                !secondaryFocused ? R.color.terminal_text_primary : R.color.terminal_text_secondary));
+            paneLeftFocus.setText(!secondaryFocused ? getString(R.string.label_pane_active) : "");
+        }
+
+        View paneRightBar = findViewById(R.id.pane_right_bar);
+        View paneRightDot = findViewById(R.id.pane_right_dot);
+        TextView paneRightLabel = findViewById(R.id.pane_right_label);
+        TextView paneRightFocus = findViewById(R.id.pane_right_focus);
+        if (paneRightBar != null && paneRightDot != null && paneRightLabel != null && paneRightFocus != null) {
+            paneRightBar.setBackgroundColor(secondaryFocused ? 0xFF2D2D2D : 0xFF212121);
+            paneRightDot.setBackgroundResource(secondaryFocused ? R.drawable.dot_session_active : R.drawable.dot_session_inactive);
+            paneRightLabel.setText(formatSessionDisplayLabel(mSecondaryTerminalView != null ? mSecondaryTerminalView.getCurrentSession() : null, -1));
+            paneRightLabel.setTextColor(ContextCompat.getColor(this,
+                secondaryFocused ? R.color.terminal_text_primary : R.color.terminal_text_secondary));
+            paneRightFocus.setText(secondaryFocused ? getString(R.string.label_pane_active) : "");
+        }
+    }
+
+    private String formatSessionDisplayLabel(@Nullable TerminalSession session, int index) {
+        if (session == null) {
+            return getString(R.string.application_name);
+        }
+        String name = session.mSessionName;
+        String title = session.getTitle();
+        String base;
+        if (!TextUtils.isEmpty(name)) {
+            base = name;
+        } else if (!TextUtils.isEmpty(title)) {
+            base = title;
+        } else {
+            base = getString(R.string.title_default_session);
+        }
+        return index >= 0 ? "[" + (index + 1) + "] " + base : base;
     }
 
     public boolean isVisible() {
@@ -919,7 +1424,29 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     public TerminalView getTerminalView() {
+        return mActiveTerminalView != null ? mActiveTerminalView : mTerminalView;
+    }
+
+    public TerminalView getPrimaryTerminalView() {
         return mTerminalView;
+    }
+
+    @Nullable
+    public TerminalView getSecondaryTerminalView() {
+        return mSecondaryTerminalView;
+    }
+
+    public boolean isSplitPaneActive() {
+        return mIsSplitMode && mSecondaryTerminalView != null;
+    }
+
+    public boolean isSecondaryPaneFocused() {
+        return isSplitPaneActive() && mActiveTerminalView == mSecondaryTerminalView;
+    }
+
+    public boolean hasAnyTerminalViewFocus() {
+        return (mTerminalView != null && mTerminalView.hasFocus()) ||
+            (isSplitPaneActive() && mSecondaryTerminalView.hasFocus());
     }
 
     public TermuxTerminalViewClient getTermuxTerminalViewClient() {
@@ -932,8 +1459,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     @Nullable
     public TerminalSession getCurrentSession() {
-        if (mTerminalView != null)
-            return mTerminalView.getCurrentSession();
+        TerminalView activeView = getTerminalView();
+        if (activeView != null)
+            return activeView.getCurrentSession();
         else
             return null;
     }

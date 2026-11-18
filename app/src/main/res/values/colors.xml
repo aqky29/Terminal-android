@@ -1,3 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="terminal_bg_canvas">#FF000000</color>
+    <color name="terminal_bg_chrome">#FF323232</color>
+    <color name="terminal_bg_tab_strip">#FF242424</color>
+    <color name="terminal_bg_drawer">#FF1E1E1E</color>
+    <color name="terminal_bg_tab_active">#FF3A3A3A</color>
+    <color name="terminal_border_hairline">#FF1A1A1A</color>
+    <color name="terminal_border_tab_active">#FF4A4A4A</color>
+    <color name="terminal_text_primary">#FFEBEBEB</color>
+    <color name="terminal_text_secondary">#FF969696</color>
+    <color name="terminal_accent_active">#FFEBEBEB</color>
+    <color name="terminal_status_error">#FFFF5F56</color>
 </resources>

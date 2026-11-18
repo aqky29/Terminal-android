@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="@android:color/darker_gray" >
+    android:color="#2EFFFFFF" >
     <item>
-        <color android:color="@android:color/background_dark" />
+        <shape android:shape="rectangle">
+            <solid android:color="@color/terminal_bg_drawer" />
+            <corners android:radius="8dp" />
+        </shape>
     </item>
 </ripple>

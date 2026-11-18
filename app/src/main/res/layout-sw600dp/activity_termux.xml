@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.termux.app.terminal.TermuxActivityRootView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_termux_root_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/terminal_bg_canvas"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
+
+    <!-- Tablet / macOS-inspired window title bar -->
+    <RelativeLayout
+        android:id="@+id/top_chrome_bar"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="@color/terminal_bg_chrome"
+        android:paddingHorizontal="@dimen/terminal_top_chrome_padding_horizontal">
+
+        <LinearLayout
+            android:id="@+id/top_chrome_left"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_alignParentStart="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_terminal_prompt"
+                app:tint="@color/terminal_text_secondary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/application_name"
+                android:textColor="@color/terminal_text_secondary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/active_session_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_marginHorizontal="12dp"
+            android:layout_toStartOf="@+id/top_chrome_right"
+            android:layout_toEndOf="@+id/top_chrome_left"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="1"
+            android:text="@string/application_name"
+            android:textColor="@color/terminal_text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/top_chrome_right"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_alignParentEnd="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/top_keyboard_button"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_chrome_button_ripple"
+                android:contentDescription="@string/action_toggle_soft_keyboard"
+                android:padding="12dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_keyboard"
+                app:tint="@color/terminal_text_secondary" />
+
+            <ImageButton
+                android:id="@+id/top_settings_button"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_chrome_button_ripple"
+                android:contentDescription="@string/action_open_settings"
+                android:padding="12dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_settings"
+                app:tint="@color/terminal_text_secondary" />
+        </LinearLayout>
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/terminal_border_hairline" />
+
+    <!-- macOS Terminal-style horizontal session tab strip -->
+    <LinearLayout
+        android:id="@+id/session_tabs_bar"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="@color/terminal_bg_tab_strip"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <HorizontalScrollView
+            android:id="@+id/session_tabs_scroll"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/session_tabs_container"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:divider="@drawable/divider_tab_vertical"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:showDividers="middle|end" />
+        </HorizontalScrollView>
+
+        <ImageButton
+            android:id="@+id/top_new_session_button"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_chrome_button_ripple"
+            android:contentDescription="@string/action_new_session"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_add_tab"
+            app:tint="@color/terminal_text_primary" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/terminal_border_hairline" />
+
+    <RelativeLayout
+        android:id="@+id/activity_termux_root_relative_layout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginHorizontal="@dimen/terminal_root_margin_horizontal"
+        android:layout_marginVertical="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/panes_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_above="@+id/terminal_toolbar_view_pager"
+            android:layout_alignParentTop="true"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/pane_left_container"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/pane_left_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="28dp"
+                    android:background="#FF2D2D2D"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="12dp"
+                    android:visibility="gone">
+
+                    <View
+                        android:id="@+id/pane_left_dot"
+                        android:layout_width="6dp"
+                        android:layout_height="6dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/dot_session_active" />
+
+                    <TextView
+                        android:id="@+id/pane_left_label"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/terminal_text_primary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/pane_left_focus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="@string/label_pane_active"
+                        android:textColor="#FFCFCFCF"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <com.termux.view.TerminalView
+                    android:id="@+id/terminal_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:defaultFocusHighlightEnabled="false"
+                    android:focusableInTouchMode="true"
+                    android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
+                    android:scrollbars="vertical"
+                    tools:ignore="UnusedAttribute" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/split_divider"
+                android:layout_width="9dp"
+                android:layout_height="match_parent"
+                android:visibility="gone">
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="center_horizontal"
+                    android:background="#FF383838" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/pane_right_container"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/pane_right_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="28dp"
+                    android:background="#FF212121"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="4dp">
+
+                    <View
+                        android:id="@+id/pane_right_dot"
+                        android:layout_width="6dp"
+                        android:layout_height="6dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/dot_session_inactive" />
+
+                    <TextView
+                        android:id="@+id/pane_right_label"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/terminal_text_secondary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/pane_right_focus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_marginEnd="2dp"
+                        android:textColor="@color/terminal_text_secondary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <ImageButton
+                        android:id="@+id/close_split_button"
+                        android:layout_width="36dp"
+                        android:layout_height="28dp"
+                        android:background="@drawable/bg_chrome_button_ripple"
+                        android:contentDescription="@string/action_close_split_pane"
+                        android:padding="6dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_close_tab"
+                        app:tint="@color/terminal_text_secondary" />
+                </LinearLayout>
+
+                <com.termux.view.TerminalView
+                    android:id="@+id/terminal_view_secondary"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:defaultFocusHighlightEnabled="false"
+                    android:focusableInTouchMode="true"
+                    android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
+                    android:scrollbars="vertical"
+                    tools:ignore="UnusedAttribute" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <androidx.viewpager.widget.ViewPager
+            android:id="@+id/terminal_toolbar_view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="37.5dp"
+            android:layout_alignParentBottom="true"
+            android:background="@color/terminal_bg_tab_strip"
+            android:visibility="gone" />
+
+    </RelativeLayout>
+
+    <View
+        android:id="@+id/activity_termux_bottom_space_view"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@android:color/transparent" />
+
+</com.termux.app.terminal.TermuxActivityRootView>
