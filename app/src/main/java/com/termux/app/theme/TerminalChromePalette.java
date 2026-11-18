@@ -122,31 +122,31 @@ public final class TerminalChromePalette {
         int liftTarget = light ? 0xFF000000 : 0xFFFFFFFF;
         int sinkTarget = light ? 0xFFFFFFFF : 0xFF000000;
 
-        int statusBg = ColorUtils.blendARGB(bg, sinkTarget, 0.14f);
-        int topChromeBg = ColorUtils.blendARGB(bg, liftTarget, 0.09f);
-        int tabStripBg = ColorUtils.blendARGB(bg, sinkTarget, 0.08f);
-        int tabActiveBg = ColorUtils.blendARGB(bg, liftTarget, 0.15f);
-        int tabOtherPaneBg = ColorUtils.blendARGB(bg, liftTarget, 0.07f);
-        int newTabBg = ColorUtils.blendARGB(bg, liftTarget, 0.03f);
-        int paneBarActiveBg = ColorUtils.blendARGB(bg, liftTarget, 0.08f);
-        int paneBarInactiveBg = ColorUtils.blendARGB(bg, sinkTarget, 0.06f);
-        int dividerColor = ColorUtils.blendARGB(bg, liftTarget, 0.16f);
+        int statusBg = blendOpaque(bg, sinkTarget, 0.14f);
+        int topChromeBg = blendOpaque(bg, liftTarget, 0.09f);
+        int tabStripBg = blendOpaque(bg, sinkTarget, 0.08f);
+        int tabActiveBg = blendOpaque(bg, liftTarget, 0.15f);
+        int tabOtherPaneBg = blendOpaque(bg, liftTarget, 0.07f);
+        int newTabBg = blendOpaque(bg, liftTarget, 0.03f);
+        int paneBarActiveBg = blendOpaque(bg, liftTarget, 0.08f);
+        int paneBarInactiveBg = blendOpaque(bg, sinkTarget, 0.06f);
+        int dividerColor = blendOpaque(bg, liftTarget, 0.16f);
         int borderHairline = light
-            ? ColorUtils.blendARGB(bg, 0xFF000000, 0.14f)
-            : (bg == 0xFF000000 ? 0xFF1C1C1C : ColorUtils.blendARGB(bg, 0xFF000000, 0.30f));
-        int extraKeysBg = ColorUtils.blendARGB(bg, liftTarget, 0.06f);
+            ? blendOpaque(bg, 0xFF000000, 0.14f)
+            : (bg == 0xFF000000 ? 0xFF1C1C1C : blendOpaque(bg, 0xFF000000, 0.30f));
+        int extraKeysBg = blendOpaque(bg, liftTarget, 0.06f);
         int extraKeysActiveBg = tabActiveBg;
-        int drawerBg = ColorUtils.blendARGB(bg, sinkTarget, 0.18f);
+        int drawerBg = blendOpaque(bg, sinkTarget, 0.18f);
 
-        int settingsSidebarBg = ColorUtils.blendARGB(bg, sinkTarget, 0.10f);
+        int settingsSidebarBg = blendOpaque(bg, sinkTarget, 0.10f);
         int settingsDetailBg = bg;
-        int settingsCardBg = ColorUtils.blendARGB(bg, liftTarget, 0.065f);
-        int settingsWellBg = ColorUtils.blendARGB(bg, sinkTarget, 0.22f);
-        int settingsActiveBg = ColorUtils.blendARGB(bg, liftTarget, 0.14f);
-        int frameBorder = ColorUtils.blendARGB(bg, liftTarget, 0.16f);
+        int settingsCardBg = blendOpaque(bg, liftTarget, 0.065f);
+        int settingsWellBg = blendOpaque(bg, sinkTarget, 0.22f);
+        int settingsActiveBg = blendOpaque(bg, liftTarget, 0.14f);
+        int frameBorder = blendOpaque(bg, liftTarget, 0.16f);
 
         int textPri = ensureReadableText(fg, topChromeBg, light);
-        int textSec = ColorUtils.blendARGB(textPri, topChromeBg, 0.36f);
+        int textSec = blendOpaque(textPri, topChromeBg, 0.36f);
         int ripple = light ? 0x1F000000 : 0x2AFFFFFF;
 
         return new TerminalChromePalette(
@@ -192,9 +192,16 @@ public final class TerminalChromePalette {
         return new RippleDrawable(ColorStateList.valueOf(rippleColor), new ColorDrawable(fillColor), null);
     }
 
+    @ColorInt
+    private static int blendOpaque(@ColorInt int c1, @ColorInt int c2, float ratio) {
+        return ColorUtils.blendARGB(c1 | 0xFF000000, c2 | 0xFF000000, ratio) | 0xFF000000;
+    }
+
     private static int ensureReadableText(@ColorInt int fg, @ColorInt int surfaceBg, boolean isLightSurface) {
-        double contrast = ColorUtils.calculateContrast(fg, surfaceBg);
-        if (contrast >= 4.5) return fg;
+        int opaqueFg = fg | 0xFF000000;
+        int opaqueBg = surfaceBg | 0xFF000000;
+        double contrast = ColorUtils.calculateContrast(opaqueFg, opaqueBg);
+        if (contrast >= 4.5) return opaqueFg;
         return isLightSurface ? 0xFF1A1A1A : 0xFFEBEBEB;
     }
 }
