@@ -2,5 +2,7 @@
 <resources>
     <dimen name="terminal_top_chrome_height">44dp</dimen>
     <dimen name="terminal_top_chrome_padding_horizontal">6dp</dimen>
-    <dimen name="terminal_root_margin_horizontal">6dp</dimen>
+    <dimen name="terminal_root_margin_horizontal">0dp</dimen>
+    <dimen name="terminal_content_padding_horizontal">10dp</dimen>
+    <dimen name="terminal_content_padding_top">4dp</dimen>
 </resources>

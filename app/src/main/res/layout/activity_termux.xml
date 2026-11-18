@@ -8,75 +8,87 @@
     android:fitsSystemWindows="true"
     android:orientation="vertical">
 
-    <!-- Phone compact header (48dp portrait, 44dp landscape via dimens) -->
-    <LinearLayout
+    <!-- Phone compact macOS-style title bar -->
+    <RelativeLayout
         android:id="@+id/top_chrome_bar"
         android:layout_width="match_parent"
         android:layout_height="@dimen/terminal_top_chrome_height"
         android:background="@color/terminal_bg_chrome"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
         android:paddingHorizontal="@dimen/terminal_top_chrome_padding_horizontal">
 
         <ImageButton
             android:id="@+id/open_drawer_button"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
             android:background="@drawable/bg_chrome_button_ripple"
             android:contentDescription="@string/action_open_sessions_drawer"
-            android:padding="12dp"
+            android:padding="11dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_sessions_menu"
-            app:tint="@color/terminal_text_primary" />
+            app:tint="@color/terminal_text_secondary" />
+
+        <LinearLayout
+            android:id="@+id/top_chrome_right"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_alignParentEnd="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/top_new_session_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_chrome_button_ripple"
+                android:contentDescription="@string/action_new_session"
+                android:padding="11dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_add_tab"
+                app:tint="@color/terminal_text_secondary" />
+
+            <ImageButton
+                android:id="@+id/top_keyboard_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_chrome_button_ripple"
+                android:contentDescription="@string/action_toggle_soft_keyboard"
+                android:padding="11dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_keyboard"
+                app:tint="@color/terminal_text_secondary" />
+
+            <ImageButton
+                android:id="@+id/top_settings_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_chrome_button_ripple"
+                android:contentDescription="@string/action_open_settings"
+                android:padding="11dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_settings"
+                app:tint="@color/terminal_text_secondary" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/active_session_title"
-            android:layout_width="0dp"
-            android:layout_height="44dp"
-            android:layout_weight="1"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_centerInParent="true"
+            android:layout_marginHorizontal="6dp"
+            android:layout_toStartOf="@+id/top_chrome_right"
+            android:layout_toEndOf="@+id/open_drawer_button"
             android:background="@drawable/bg_chrome_button_ripple"
             android:ellipsize="end"
-            android:gravity="center_vertical"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
             android:maxLines="1"
             android:paddingHorizontal="8dp"
             android:text="@string/application_name"
-            android:textColor="@color/terminal_text_primary"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <ImageButton
-            android:id="@+id/top_new_session_button"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_chrome_button_ripple"
-            android:contentDescription="@string/action_new_session"
-            android:padding="12dp"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_add_tab"
-            app:tint="@color/terminal_text_primary" />
-
-        <ImageButton
-            android:id="@+id/top_keyboard_button"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_chrome_button_ripple"
-            android:contentDescription="@string/action_toggle_soft_keyboard"
-            android:padding="12dp"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_keyboard"
-            app:tint="@color/terminal_text_secondary" />
-
-        <ImageButton
-            android:id="@+id/top_settings_button"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_chrome_button_ripple"
-            android:contentDescription="@string/action_open_settings"
-            android:padding="12dp"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_settings"
-            app:tint="@color/terminal_text_secondary" />
-    </LinearLayout>
+            android:textColor="@color/terminal_text_secondary"
+            android:textSize="13sp" />
+    </RelativeLayout>
 
     <View
         android:id="@+id/top_chrome_divider"
@@ -104,6 +116,9 @@
                 android:id="@+id/terminal_view"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:layout_marginStart="@dimen/terminal_content_padding_horizontal"
+                android:layout_marginTop="@dimen/terminal_content_padding_top"
+                android:layout_marginEnd="@dimen/terminal_content_padding_horizontal"
                 android:defaultFocusHighlightEnabled="false"
                 android:focusableInTouchMode="true"
                 android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"

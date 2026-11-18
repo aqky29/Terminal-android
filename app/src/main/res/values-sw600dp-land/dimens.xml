@@ -2,7 +2,9 @@
 <resources>
     <dimen name="terminal_top_chrome_height">44dp</dimen>
     <dimen name="terminal_top_chrome_padding_horizontal">12dp</dimen>
-    <dimen name="terminal_root_margin_horizontal">12dp</dimen>
+    <dimen name="terminal_root_margin_horizontal">0dp</dimen>
+    <dimen name="terminal_content_padding_horizontal">12dp</dimen>
+    <dimen name="terminal_content_padding_top">8dp</dimen>
     <dimen name="terminal_tablet_tab_bar_padding_start">12dp</dimen>
     <dimen name="terminal_tablet_tab_bar_padding_end">8dp</dimen>
 </resources>

@@ -40,9 +40,11 @@ import androidx.core.widget.ImageViewCompat;
 
 import com.termux.BuildConfig;
 import com.termux.R;
+import com.termux.app.TermuxActivity;
 import com.termux.app.activities.SettingsUiBuilder.SegmentedOption;
 import com.termux.app.models.UserAction;
 import com.termux.app.theme.TerminalChromePalette;
+import com.termux.app.theme.TerminalFonts;
 import com.termux.app.theme.TerminalThemePresets;
 import com.termux.app.theme.TerminalThemePresets.ThemePreset;
 import com.termux.shared.activities.ReportActivity;
@@ -54,6 +56,7 @@ import com.termux.shared.models.ReportInfo;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
+import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants.TERMUX_APP;
 import com.termux.shared.termux.settings.properties.TermuxPropertyConstants;
 import com.termux.shared.theme.NightMode;
 
@@ -94,7 +97,7 @@ public class SettingsActivity extends AppCompatActivity {
         new CategoryItem(
             "appearance", "Workspace", "Appearance", "Color theme, font & cursor",
             R.drawable.ic_settings_appearance,
-            "theme colors background foreground dark nord solarized amoled font size cursor style blink colors.properties font.ttf"
+            "theme colors background foreground dark nord solarized amoled font dejavu jetbrains menlo size cursor style blink colors.properties font.ttf"
         ),
         new CategoryItem(
             "terminal-view", "Workspace", "Terminal View", "Margin, Extra Keys & bell",
@@ -404,7 +407,10 @@ public class SettingsActivity extends AppCompatActivity {
             case "appearance": {
                 ThemePreset preset = TerminalThemePresets.getPresetOrDefault(mPreferences.getColorPreset());
                 String firstWord = preset.name.split(" ")[0];
-                return firstWord + " \u2022 " + mPreferences.getFontSize() + "sp";
+                String fontShort = TerminalFonts.hasCustomFontFile()
+                    ? "font.ttf"
+                    : TerminalFonts.getDisplayName(mPreferences.getTerminalFont()).split(" ")[0];
+                return firstWord + " \u2022 " + fontShort + " \u2022 " + mPreferences.getFontSize() + "sp";
             }
             case "terminal-view":
                 return mPreferences.shouldShowTerminalToolbar() ? "Extra Keys On" : "Extra Keys Off";
@@ -617,7 +623,9 @@ public class SettingsActivity extends AppCompatActivity {
         boolean cursorBlink = blinkRate > 0;
 
         // Live preview card
-        target.addView(mUi.createLiveTerminalPreviewCard(currentPreset, fontSize, cursorStyle, cursorBlink, mPalette));
+        String selectedFont = mPreferences.getTerminalFont();
+        Typeface previewTypeface = TerminalFonts.resolve(this, selectedFont);
+        target.addView(mUi.createLiveTerminalPreviewCard(currentPreset, previewTypeface, fontSize, cursorStyle, cursorBlink, mPalette));
 
         // Color Themes Card
         target.addView(mUi.createSectionTitle("Color Theme (colors.properties)", mPalette));
@@ -675,8 +683,28 @@ public class SettingsActivity extends AppCompatActivity {
         target.addView(themeCard);
 
         // Typography Card
-        target.addView(mUi.createSectionTitle("Typography (font.ttf)", mPalette));
+        target.addView(mUi.createSectionTitle("Typography", mPalette));
         LinearLayout typoCard = mUi.createCard(mPalette);
+        typoCard.addView(mUi.createSegmentedRow(
+            "Font",
+            TerminalFonts.hasCustomFontFile()
+                ? "~/.termux/font.ttf active \u2014 selection overridden"
+                : TerminalFonts.getDisplayName(selectedFont) + " (or ~/.termux/font.ttf)",
+            Arrays.asList(
+                new SegmentedOption(TERMUX_APP.VALUE_TERMINAL_FONT_DEJAVU, "DejaVu"),
+                new SegmentedOption(TERMUX_APP.VALUE_TERMINAL_FONT_JETBRAINS, "JetBrains"),
+                new SegmentedOption(TERMUX_APP.VALUE_TERMINAL_FONT_SYSTEM, "System")
+            ),
+            selectedFont,
+            mPalette,
+            value -> {
+                mPreferences.setTerminalFont(value);
+                TermuxActivity.updateTermuxActivityStyling(this, false);
+                renderNavigation();
+                renderDetail();
+            }
+        ));
+        typoCard.addView(mUi.createDivider(mPalette));
         int[] defaults = TermuxAppSharedPreferences.getDefaultFontSizes(this);
         int minFont = Math.max(8, defaults[1]);
         int maxFont = Math.min(48, Math.max(24, defaults[0] * 2));

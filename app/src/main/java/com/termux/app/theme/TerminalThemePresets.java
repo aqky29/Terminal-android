@@ -238,6 +238,7 @@ public final class TerminalThemePresets {
         prefs.setSoftKeyboardEnabled(TERMUX_APP.DEFAULT_VALUE_KEY_SOFT_KEYBOARD_ENABLED);
         prefs.setSoftKeyboardEnabledOnlyIfNoHardware(TERMUX_APP.DEFAULT_VALUE_KEY_SOFT_KEYBOARD_ENABLED_ONLY_IF_NO_HARDWARE);
         prefs.setFontSize(TermuxAppSharedPreferences.getDefaultFontSizes(context)[0]);
+        prefs.setTerminalFont(TERMUX_APP.DEFAULT_VALUE_TERMINAL_FONT);
         prefs.setTerminalViewKeyLoggingEnabled(TERMUX_APP.DEFAULT_VALUE_TERMINAL_VIEW_KEY_LOGGING_ENABLED);
         prefs.setPluginErrorNotificationsEnabled(TERMUX_APP.DEFAULT_VALUE_PLUGIN_ERROR_NOTIFICATIONS_ENABLED);
         prefs.setCrashReportNotificationsEnabled(TERMUX_APP.DEFAULT_VALUE_CRASH_REPORT_NOTIFICATIONS_ENABLED);

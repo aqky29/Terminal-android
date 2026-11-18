@@ -200,6 +200,13 @@ public final class TermuxPreferenceConstants {
         public static final String KEY_DEFAULT_SPLIT_RATIO = "default_split_ratio";
         public static final int DEFAULT_VALUE_DEFAULT_SPLIT_RATIO = 50;
 
+        /** Built-in terminal font: "dejavu-sans-mono", "jetbrains-mono", or "system". Overridden by ~/.termux/font.ttf if present. */
+        public static final String KEY_TERMINAL_FONT = "terminal_font";
+        public static final String VALUE_TERMINAL_FONT_DEJAVU = "dejavu-sans-mono";
+        public static final String VALUE_TERMINAL_FONT_JETBRAINS = "jetbrains-mono";
+        public static final String VALUE_TERMINAL_FONT_SYSTEM = "system";
+        public static final String DEFAULT_VALUE_TERMINAL_FONT = VALUE_TERMINAL_FONT_DEJAVU;
+
     }
 
 

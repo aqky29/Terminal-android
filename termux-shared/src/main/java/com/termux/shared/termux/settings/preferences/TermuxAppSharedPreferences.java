@@ -299,4 +299,12 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_DEFAULT_SPLIT_RATIO, DataUtils.clamp(value, 25, 75), false);
     }
 
+    public String getTerminalFont() {
+        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_FONT, TERMUX_APP.DEFAULT_VALUE_TERMINAL_FONT, true);
+    }
+
+    public void setTerminalFont(String value) {
+        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_FONT, value, false);
+    }
+
 }

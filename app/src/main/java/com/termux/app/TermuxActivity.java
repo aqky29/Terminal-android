@@ -70,6 +70,7 @@ import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.theme.TermuxThemeUtils;
 import com.termux.shared.theme.NightMode;
 import com.termux.shared.view.ViewUtils;
+import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
@@ -79,6 +80,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.core.widget.ImageViewCompat;
@@ -1081,11 +1083,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         View topChromeBar = findViewById(R.id.top_chrome_bar);
         if (topChromeBar != null) topChromeBar.setBackgroundColor(palette.topChromeBg);
 
+        int hairlineColor = ColorUtils.setAlphaComponent(palette.borderHairline, 153);
         View topDivider = findViewById(R.id.top_chrome_divider);
-        if (topDivider != null) topDivider.setBackgroundColor(palette.borderHairline);
+        if (topDivider != null) topDivider.setBackgroundColor(hairlineColor);
 
         View tabsDivider = findViewById(R.id.session_tabs_divider);
-        if (tabsDivider != null) tabsDivider.setBackgroundColor(palette.borderHairline);
+        if (tabsDivider != null) tabsDivider.setBackgroundColor(hairlineColor);
 
         View sessionTabsBar = findViewById(R.id.session_tabs_bar);
         if (sessionTabsBar != null) sessionTabsBar.setBackgroundColor(palette.tabStripBg);
@@ -1094,7 +1097,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (tabsContainer != null) {
             GradientDrawable dividerDrawable = new GradientDrawable();
             dividerDrawable.setSize(Math.max(1, Math.round(getResources().getDisplayMetrics().density)), 1);
-            dividerDrawable.setColor(palette.borderHairline);
+            dividerDrawable.setColor(ColorUtils.setAlphaComponent(palette.borderHairline, 128));
             tabsContainer.setDividerDrawable(dividerDrawable);
         }
 
@@ -1108,10 +1111,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (brandLabel != null) brandLabel.setTextColor(palette.textSecondary);
 
         TextView activeTitleView = findViewById(R.id.active_session_title);
-        if (activeTitleView != null) activeTitleView.setTextColor(palette.textPrimary);
+        if (activeTitleView != null) activeTitleView.setTextColor(palette.textSecondary);
 
         ImageButton drawerButton = findViewById(R.id.open_drawer_button);
-        if (drawerButton != null) ImageViewCompat.setImageTintList(drawerButton, ColorStateList.valueOf(palette.textPrimary));
+        if (drawerButton != null) ImageViewCompat.setImageTintList(drawerButton, ColorStateList.valueOf(palette.textSecondary));
 
         ImageButton keyboardButton = findViewById(R.id.top_keyboard_button);
         if (keyboardButton != null) ImageViewCompat.setImageTintList(keyboardButton, ColorStateList.valueOf(palette.textSecondary));
@@ -1121,11 +1124,23 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         ImageButton newSessionButton = findViewById(R.id.top_new_session_button);
         if (newSessionButton != null) {
-            ImageViewCompat.setImageTintList(newSessionButton, ColorStateList.valueOf(palette.textPrimary));
-            if (findViewById(R.id.session_tabs_bar) != null) {
-                newSessionButton.setBackground(palette.createRippleBackground(palette.newTabBg));
+            ImageViewCompat.setImageTintList(newSessionButton, ColorStateList.valueOf(palette.textSecondary));
+            if (sessionTabsBar != null) {
+                int topStrokePx = Math.max(1, Math.round(getResources().getDisplayMetrics().density));
+                newSessionButton.setBackground(palette.createTabBackground(palette.newTabBg, hairlineColor, topStrokePx));
             }
         }
+    }
+
+    /**
+     * Updates the centered macOS-style window title with session name/cwd, process title, and cols x rows.
+     */
+    public void updateWindowTitle() {
+        TextView activeTitleView = findViewById(R.id.active_session_title);
+        if (activeTitleView == null) return;
+        TerminalChromePalette palette = getActiveChromePalette();
+        activeTitleView.setText(formatWindowTitle(getCurrentSession()));
+        activeTitleView.setTextColor(palette.textSecondary);
     }
 
     /**
@@ -1138,8 +1153,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         TerminalSession currentSession = getCurrentSession();
         TextView activeTitleView = findViewById(R.id.active_session_title);
         if (activeTitleView != null) {
-            activeTitleView.setText(formatSessionDisplayLabel(currentSession, -1));
-            activeTitleView.setTextColor(palette.textPrimary);
+            activeTitleView.setText(formatWindowTitle(currentSession));
+            activeTitleView.setTextColor(palette.textSecondary);
         }
 
         LinearLayout tabsContainer = findViewById(R.id.session_tabs_container);
@@ -1154,6 +1169,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         TerminalSession primarySession = mTerminalView != null ? mTerminalView.getCurrentSession() : null;
         TerminalSession secondarySession = isSplitPaneActive() && mSecondaryTerminalView != null
             ? mSecondaryTerminalView.getCurrentSession() : null;
+        int topStrokePx = Math.max(1, Math.round(getResources().getDisplayMetrics().density));
+        int topHairlineColor = ColorUtils.setAlphaComponent(palette.borderHairline, 153);
 
         for (int i = 0; i < sessions.size(); i++) {
             final TerminalSession session = sessions.get(i).getTerminalSession();
@@ -1167,32 +1184,33 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             boolean isActive = (session == currentSession);
             boolean isVisibleInOtherPane = !isActive && isSplitPaneActive() &&
                 (session == primarySession || session == secondarySession);
-            boolean isRunning = session.isRunning();
+            boolean isError = !session.isRunning() && session.getExitStatus() != 0;
 
             int tabBg = isActive
-                ? palette.tabActiveBg
+                ? palette.topChromeBg
                 : (isVisibleInOtherPane ? palette.tabOtherPaneBg : palette.tabStripBg);
-            tabView.setBackground(palette.createRippleBackground(tabBg));
-
-            View dotView = tabView.findViewById(R.id.session_tab_dot);
-            GradientDrawable dotDrawable = new GradientDrawable();
-            dotDrawable.setShape(GradientDrawable.OVAL);
-            int dotSize = Math.round(6 * getResources().getDisplayMetrics().density);
-            dotDrawable.setSize(dotSize, dotSize);
-            if (!isRunning && session.getExitStatus() != 0) {
-                dotDrawable.setColor(ContextCompat.getColor(this, R.color.terminal_status_error));
-            } else {
-                dotDrawable.setColor(isActive ? palette.textPrimary : palette.textSecondary);
-            }
-            dotView.setBackground(dotDrawable);
+            tabView.setBackground(palette.createTabBackground(tabBg, topHairlineColor, isActive ? 0 : topStrokePx));
 
             TextView tabTitle = tabView.findViewById(R.id.session_tab_title);
-            tabTitle.setText(formatSessionDisplayLabel(session, i));
-            tabTitle.setTextColor(isActive ? palette.textPrimary : palette.textSecondary);
-            tabTitle.setTypeface(null, isActive ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+            tabTitle.setText(formatSessionDisplayLabel(session, -1));
+            tabTitle.setTextColor(isError
+                ? ContextCompat.getColor(this, R.color.terminal_status_error)
+                : (isActive ? palette.textPrimary : palette.textSecondary));
+
+            TextView tabShortcut = tabView.findViewById(R.id.session_tab_shortcut);
+            if (tabShortcut != null) {
+                if (i < 9) {
+                    tabShortcut.setVisibility(View.VISIBLE);
+                    tabShortcut.setText("\u2318" + (i + 1));
+                    tabShortcut.setTextColor(isActive ? palette.textPrimary : palette.textSecondary);
+                } else {
+                    tabShortcut.setVisibility(View.GONE);
+                }
+            }
 
             ImageButton closeTabButton = tabView.findViewById(R.id.close_tab_button);
-            ImageViewCompat.setImageTintList(closeTabButton, ColorStateList.valueOf(palette.textSecondary));
+            closeTabButton.setVisibility(isActive ? View.VISIBLE : View.INVISIBLE);
+            ImageViewCompat.setImageTintList(closeTabButton, ColorStateList.valueOf(isActive ? palette.textPrimary : palette.textSecondary));
 
             tabView.setOnClickListener(v -> {
                 if (isSplitPaneActive()) {
@@ -1540,6 +1558,50 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 ImageViewCompat.setImageTintList(closeSplitButton, ColorStateList.valueOf(palette.textSecondary));
             }
         }
+    }
+
+    private String formatWindowTitle(@Nullable TerminalSession session) {
+        if (session == null) {
+            return getString(R.string.application_name);
+        }
+        TerminalEmulator emulator = session.getEmulator();
+        int cols = emulator != null ? emulator.mColumns : 0;
+        int rows = emulator != null ? emulator.mRows : 0;
+        return buildWindowTitle(session.mSessionName, session.getCwd(), session.getTitle(), cols, rows);
+    }
+
+    @NonNull
+    static String buildWindowTitle(
+        @Nullable String sessionName,
+        @Nullable String cwd,
+        @Nullable String procTitle,
+        int cols,
+        int rows
+    ) {
+        String head = !TextUtils.isEmpty(sessionName) ? sessionName : shortenCwd(cwd);
+        StringBuilder sb = new StringBuilder(head);
+        if (!TextUtils.isEmpty(procTitle) && !procTitle.equals(head)) {
+            sb.append(" \u2014 ").append(procTitle);
+        }
+        if (cols > 0 && rows > 0) {
+            sb.append(" \u2014 ").append(cols).append('\u00D7').append(rows);
+        }
+        return sb.toString();
+    }
+
+    @NonNull
+    static String shortenCwd(@Nullable String cwd) {
+        if (TextUtils.isEmpty(cwd)) {
+            return "~";
+        }
+        String home = TermuxConstants.TERMUX_HOME_DIR_PATH;
+        if (cwd.equals(home)) {
+            return "~";
+        }
+        if (cwd.startsWith(home + "/")) {
+            return "~" + cwd.substring(home.length());
+        }
+        return cwd;
     }
 
     private String formatSessionDisplayLabel(@Nullable TerminalSession session, int index) {

@@ -181,6 +181,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             setTerminalCursorBlinkerState(true);
             mTerminalCursorBlinkerStateAlreadySet = true;
         }
+        mActivity.updateWindowTitle();
     }
 
 

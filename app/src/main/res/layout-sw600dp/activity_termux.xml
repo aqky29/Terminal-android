@@ -12,7 +12,7 @@
     <RelativeLayout
         android:id="@+id/top_chrome_bar"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="@dimen/terminal_top_chrome_height"
         android:background="@color/terminal_bg_chrome"
         android:paddingHorizontal="@dimen/terminal_top_chrome_padding_horizontal">
 
@@ -26,8 +26,8 @@
 
             <ImageView
                 android:id="@+id/top_brand_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="17dp"
+                android:layout_height="17dp"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="6dp"
                 android:contentDescription="@null"
@@ -38,10 +38,10 @@
                 android:id="@+id/top_brand_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
                 android:text="@string/application_name"
                 android:textColor="@color/terminal_text_secondary"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:textSize="12.5sp" />
         </LinearLayout>
 
         <TextView
@@ -53,12 +53,12 @@
             android:layout_toStartOf="@+id/top_chrome_right"
             android:layout_toEndOf="@+id/top_chrome_left"
             android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:maxLines="1"
             android:text="@string/application_name"
-            android:textColor="@color/terminal_text_primary"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:textColor="@color/terminal_text_secondary"
+            android:textSize="13sp" />
 
         <LinearLayout
             android:id="@+id/top_chrome_right"
@@ -70,22 +70,22 @@
 
             <ImageButton
                 android:id="@+id/top_keyboard_button"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:background="@drawable/bg_chrome_button_ripple"
                 android:contentDescription="@string/action_toggle_soft_keyboard"
-                android:padding="12dp"
+                android:padding="11dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_keyboard"
                 app:tint="@color/terminal_text_secondary" />
 
             <ImageButton
                 android:id="@+id/top_settings_button"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:background="@drawable/bg_chrome_button_ripple"
                 android:contentDescription="@string/action_open_settings"
-                android:padding="12dp"
+                android:padding="11dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_settings"
                 app:tint="@color/terminal_text_secondary" />
@@ -96,13 +96,14 @@
         android:id="@+id/top_chrome_divider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/terminal_border_hairline" />
+        android:background="@color/terminal_border_hairline"
+        android:visibility="gone" />
 
     <!-- macOS Terminal-style horizontal session tab strip -->
     <LinearLayout
         android:id="@+id/session_tabs_bar"
         android:layout_width="match_parent"
-        android:layout_height="34dp"
+        android:layout_height="30dp"
         android:background="@color/terminal_bg_tab_strip"
         android:gravity="center_vertical"
         android:orientation="horizontal">
@@ -127,14 +128,14 @@
 
         <ImageButton
             android:id="@+id/top_new_session_button"
-            android:layout_width="38dp"
-            android:layout_height="34dp"
+            android:layout_width="36dp"
+            android:layout_height="30dp"
             android:background="@drawable/bg_chrome_button_ripple"
             android:contentDescription="@string/action_new_session"
-            android:padding="9dp"
+            android:padding="8dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_add_tab"
-            app:tint="@color/terminal_text_primary" />
+            app:tint="@color/terminal_text_secondary" />
     </LinearLayout>
 
     <View
@@ -209,6 +210,9 @@
                     android:id="@+id/terminal_view"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
+                    android:layout_marginStart="@dimen/terminal_content_padding_horizontal"
+                    android:layout_marginTop="@dimen/terminal_content_padding_top"
+                    android:layout_marginEnd="@dimen/terminal_content_padding_horizontal"
                     android:layout_weight="1"
                     android:defaultFocusHighlightEnabled="false"
                     android:focusableInTouchMode="true"
@@ -292,6 +296,9 @@
                     android:id="@+id/terminal_view_secondary"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
+                    android:layout_marginStart="@dimen/terminal_content_padding_horizontal"
+                    android:layout_marginTop="@dimen/terminal_content_padding_top"
+                    android:layout_marginEnd="@dimen/terminal_content_padding_horizontal"
                     android:layout_weight="1"
                     android:defaultFocusHighlightEnabled="false"
                     android:focusableInTouchMode="true"

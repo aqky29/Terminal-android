@@ -29,9 +29,7 @@ import androidx.core.graphics.drawable.DrawableCompat;
 import com.termux.R;
 import com.termux.app.theme.TerminalChromePalette;
 import com.termux.app.theme.TerminalThemePresets.ThemePreset;
-import com.termux.shared.termux.TermuxConstants;
 
-import java.io.File;
 import java.util.List;
 
 /**
@@ -261,6 +259,7 @@ final class SettingsUiBuilder {
 
     View createLiveTerminalPreviewCard(
         @NonNull ThemePreset preset,
+        @NonNull Typeface termTypeface,
         int fontSizeSp,
         @NonNull String cursorStyle,
         boolean cursorBlink,
@@ -319,15 +318,6 @@ final class SettingsUiBuilder {
         body.setOrientation(LinearLayout.VERTICAL);
         body.setBackgroundColor(preset.bg);
         body.setPadding(dp(14), dp(12), dp(14), dp(12));
-
-        Typeface termTypeface = Typeface.MONOSPACE;
-        File fontFile = TermuxConstants.TERMUX_FONT_FILE;
-        if (fontFile.exists() && fontFile.length() > 0) {
-            try {
-                termTypeface = Typeface.createFromFile(fontFile);
-            } catch (Exception ignored) {
-            }
-        }
 
         int previewSp = Math.max(10, Math.min(18, fontSizeSp));
 

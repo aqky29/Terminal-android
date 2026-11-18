@@ -4,6 +4,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
 
 import androidx.annotation.ColorInt;
@@ -190,6 +191,25 @@ public final class TerminalChromePalette {
     @NonNull
     public Drawable createRippleBackground(@ColorInt int fillColor) {
         return new RippleDrawable(ColorStateList.valueOf(rippleColor), new ColorDrawable(fillColor), null);
+    }
+
+    /**
+     * Creates a ripple background with an optional top hairline (used on inactive macOS-style tabs
+     * so the active tab merges seamlessly upward into the title bar).
+     */
+    @NonNull
+    public Drawable createTabBackground(@ColorInt int fillColor, @ColorInt int topHairlineColor, int topStrokePx) {
+        Drawable content;
+        if (topStrokePx > 0) {
+            ColorDrawable topBorder = new ColorDrawable(topHairlineColor);
+            ColorDrawable fill = new ColorDrawable(fillColor);
+            LayerDrawable layer = new LayerDrawable(new Drawable[]{topBorder, fill});
+            layer.setLayerInset(1, 0, topStrokePx, 0, 0);
+            content = layer;
+        } else {
+            content = new ColorDrawable(fillColor);
+        }
+        return new RippleDrawable(ColorStateList.valueOf(rippleColor), content, null);
     }
 
     @ColorInt
