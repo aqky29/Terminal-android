@@ -76,6 +76,9 @@ public class TermuxAppShellEnvironment {
     /** Environment variable for the Termux app {@link TermuxAmSocketServer#getTermuxAppAMSocketServerEnabled(Context)}. */
     public static final String ENV_TERMUX_APP__AM_SOCKET_SERVER_ENABLED = TERMUX_APP_ENV_PREFIX + "AM_SOCKET_SERVER_ENABLED";
 
+    /** Environment variable for the Termux Agent socket file path. */
+    public static final String ENV_TERMUX_AGENT_SOCKET = TermuxConstants.TERMUX_ENV_PREFIX_ROOT + "_AGENT_SOCKET";
+
 
 
     /** Get shell environment for Termux app. */
@@ -131,6 +134,8 @@ public class TermuxAppShellEnvironment {
             // Will not be set for plugins
             ShellEnvironmentUtils.putToEnvIfSet(environment, ENV_TERMUX_APP__AM_SOCKET_SERVER_ENABLED,
                 TermuxAmSocketServer.getTermuxAppAMSocketServerEnabled(currentPackageContext));
+            ShellEnvironmentUtils.putToEnvIfSet(environment, ENV_TERMUX_AGENT_SOCKET,
+                TermuxConstants.TERMUX_APP.TERMUX_AGENT_SOCKET_FILE_PATH);
 
             String filesDirPath = currentPackageContext.getFilesDir().getAbsolutePath();
             ShellEnvironmentUtils.putToEnvIfSet(environment, ENV_TERMUX_APP__FILES_DIR, filesDirPath);

@@ -281,6 +281,24 @@ public final class ExtraKeysView extends GridLayout {
         mButtonActiveTextColor = buttonActiveTextColor;
         mButtonBackgroundColor = buttonBackgroundColor;
         mButtonActiveBackgroundColor = buttonActiveBackgroundColor;
+
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child instanceof MaterialButton) {
+                MaterialButton button = (MaterialButton) child;
+                boolean isActiveSpecial = false;
+                if (mSpecialButtons != null) {
+                    for (SpecialButtonState state : mSpecialButtons.values()) {
+                        if (state.buttons.contains(button) && state.isActive) {
+                            isActiveSpecial = true;
+                            break;
+                        }
+                    }
+                }
+                button.setTextColor(isActiveSpecial ? mButtonActiveTextColor : mButtonTextColor);
+                button.setBackgroundColor(mButtonBackgroundColor);
+            }
+        }
     }
 
 
@@ -411,6 +429,7 @@ public final class ExtraKeysView extends GridLayout {
 
                 button.setText(buttonInfo.getDisplay());
                 button.setTextColor(mButtonTextColor);
+                button.setBackgroundColor(mButtonBackgroundColor);
                 button.setAllCaps(mButtonTextAllCaps);
                 button.setPadding(0, 0, 0, 0);
 

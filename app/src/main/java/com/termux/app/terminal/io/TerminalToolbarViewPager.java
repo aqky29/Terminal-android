@@ -80,6 +80,9 @@ public class TerminalToolbarViewPager {
                 });
             }
             collection.addView(layout);
+            if (mActivity.getTermuxTerminalSessionClient() != null) {
+                mActivity.getTermuxTerminalSessionClient().updateBackgroundColor();
+            }
             return layout;
         }
 

@@ -188,6 +188,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private static final int CONTEXT_MENU_HELP_ID = 7;
     private static final int CONTEXT_MENU_SETTINGS_ID = 8;
     private static final int CONTEXT_MENU_REPORT_ID = 9;
+    private static final int CONTEXT_MENU_GRANT_MICROPHONE_PERMISSION_ID = 12;
+
+    private static boolean sHasRequestedMicrophonePermissionOnLaunch = false;
 
     private static final String ARG_TERMINAL_TOOLBAR_TEXT_INPUT = "terminal_toolbar_text_input";
     private static final String ARG_ACTIVITY_RECREATED = "activity_recreated";
@@ -404,6 +407,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                             launchFailsafe = intent.getExtras().getBoolean(TERMUX_ACTIVITY.EXTRA_FAILSAFE_SESSION, false);
                         }
                         mTermuxTerminalSessionActivityClient.addNewSession(launchFailsafe, null);
+                        maybeRequestMicrophonePermissionOnLaunch();
                     } catch (WindowManager.BadTokenException e) {
                         // Activity finished - ignore.
                     }
@@ -423,6 +427,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             } else {
                 mTermuxTerminalSessionActivityClient.setCurrentSession(mTermuxTerminalSessionActivityClient.getCurrentStoredSessionOrLast());
             }
+            maybeRequestMicrophonePermissionOnLaunch();
         }
 
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
@@ -645,6 +650,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         menu.add(Menu.NONE, CONTEXT_MENU_KILL_PROCESS_ID, Menu.NONE, getResources().getString(R.string.action_kill_process, getCurrentSession().getPid())).setEnabled(currentSession.isRunning());
         menu.add(Menu.NONE, CONTEXT_MENU_STYLING_ID, Menu.NONE, R.string.action_style_terminal);
         menu.add(Menu.NONE, CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON, Menu.NONE, R.string.action_toggle_keep_screen_on).setCheckable(true).setChecked(mPreferences.shouldKeepScreenOn());
+        if (!PermissionUtils.checkMicrophonePermission(this))
+            menu.add(Menu.NONE, CONTEXT_MENU_GRANT_MICROPHONE_PERMISSION_ID, Menu.NONE, R.string.action_grant_microphone_permission);
         menu.add(Menu.NONE, CONTEXT_MENU_HELP_ID, Menu.NONE, R.string.action_open_help);
         menu.add(Menu.NONE, CONTEXT_MENU_SETTINGS_ID, Menu.NONE, R.string.action_open_settings);
         menu.add(Menu.NONE, CONTEXT_MENU_REPORT_ID, Menu.NONE, R.string.action_report_issue);
@@ -688,6 +695,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return true;
             case CONTEXT_MENU_TOGGLE_KEEP_SCREEN_ON:
                 toggleKeepScreenOn();
+                return true;
+            case CONTEXT_MENU_GRANT_MICROPHONE_PERMISSION_ID:
+                requestMicrophonePermission(false, false);
                 return true;
             case CONTEXT_MENU_HELP_ID:
                 ActivityUtils.startActivity(this, new Intent(this, HelpActivity.class));
@@ -789,6 +799,34 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }.start();
     }
 
+    /**
+     * Request {@link android.Manifest.permission#RECORD_AUDIO} once per app process launch if it has
+     * not already been granted, so CLI voice tools running inside Termux can capture audio.
+     */
+    private void maybeRequestMicrophonePermissionOnLaunch() {
+        if (sHasRequestedMicrophonePermissionOnLaunch || !mIsVisible) return;
+        sHasRequestedMicrophonePermissionOnLaunch = true;
+        if (!PermissionUtils.checkMicrophonePermission(this)) {
+            requestMicrophonePermission(false, false);
+        }
+    }
+
+    /**
+     * Check or request {@link android.Manifest.permission#RECORD_AUDIO} permission for Termux processes.
+     */
+    public void requestMicrophonePermission(boolean isPermissionCallback, boolean showErrorMessage) {
+        int requestCode = isPermissionCallback ? -1 : PermissionUtils.REQUEST_GRANT_MICROPHONE_PERMISSION;
+        if (PermissionUtils.checkAndRequestMicrophonePermission(TermuxActivity.this, requestCode, !isPermissionCallback && showErrorMessage)) {
+            if (isPermissionCallback)
+                Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
+                    getString(com.termux.shared.R.string.msg_microphone_permission_granted_on_request));
+        } else {
+            if (isPermissionCallback)
+                Logger.logInfoAndShowToast(TermuxActivity.this, LOG_TAG,
+                    getString(com.termux.shared.R.string.msg_microphone_permission_not_granted_on_request));
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -804,6 +842,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Logger.logVerbose(LOG_TAG, "onRequestPermissionsResult: requestCode: " + requestCode + ", permissions: "  + Arrays.toString(permissions) + ", grantResults: "  + Arrays.toString(grantResults));
         if (requestCode == PermissionUtils.REQUEST_GRANT_STORAGE_PERMISSION) {
             requestStoragePermission(true);
+        } else if (requestCode == PermissionUtils.REQUEST_GRANT_MICROPHONE_PERMISSION) {
+            requestMicrophonePermission(true, false);
         }
     }
 
@@ -856,7 +896,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
 
     public void termuxSessionListNotifyUpdated() {
-        mTermuxSessionListViewController.notifyDataSetChanged();
+        if (mTermuxSessionListViewController != null)
+            mTermuxSessionListViewController.notifyDataSetChanged();
     }
 
     public boolean isVisible() {
@@ -920,6 +961,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         intentFilter.addAction(TERMUX_ACTIVITY.ACTION_NOTIFY_APP_CRASH);
         intentFilter.addAction(TERMUX_ACTIVITY.ACTION_RELOAD_STYLE);
         intentFilter.addAction(TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS);
+        intentFilter.addAction(TERMUX_ACTIVITY.ACTION_REQUEST_MICROPHONE_PERMISSION);
 
         registerReceiver(mTermuxActivityBroadcastReceiver, intentFilter);
     }
@@ -958,6 +1000,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     case TERMUX_ACTIVITY.ACTION_REQUEST_PERMISSIONS:
                         Logger.logDebug(LOG_TAG, "Received intent to request storage permissions");
                         requestStoragePermission(false);
+                        return;
+                    case TERMUX_ACTIVITY.ACTION_REQUEST_MICROPHONE_PERMISSION:
+                        Logger.logDebug(LOG_TAG, "Received intent to request microphone permission");
+                        requestMicrophonePermission(false, true);
                         return;
                     default:
                 }

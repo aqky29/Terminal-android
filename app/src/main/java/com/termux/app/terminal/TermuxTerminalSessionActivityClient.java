@@ -7,16 +7,24 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
 import android.text.TextUtils;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ListView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.widget.ImageViewCompat;
+import androidx.viewpager.widget.ViewPager;
 
+import com.google.android.material.button.MaterialButton;
 import com.termux.R;
+import com.termux.shared.termux.extrakeys.ExtraKeysView;
 import com.termux.shared.interact.ShareUtils;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.termux.interact.TextInputDialogUtils;
@@ -518,11 +526,57 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     }
 
     public void updateBackgroundColor() {
-        if (!mActivity.isVisible()) return;
         TerminalSession session = mActivity.getCurrentSession();
-        if (session != null && session.getEmulator() != null) {
-            mActivity.getWindow().getDecorView().setBackgroundColor(session.getEmulator().mColors.mCurrentColors[TextStyle.COLOR_INDEX_BACKGROUND]);
+        int[] colors = (session != null && session.getEmulator() != null)
+            ? session.getEmulator().mColors.mCurrentColors
+            : TerminalColors.COLOR_SCHEME.mDefaultColors;
+
+        int backgroundColor = colors[TextStyle.COLOR_INDEX_BACKGROUND];
+        int foregroundColor = colors[TextStyle.COLOR_INDEX_FOREGROUND];
+        int cursorColor = colors[TextStyle.COLOR_INDEX_CURSOR];
+        int activeBackgroundColor = (colors[8] != backgroundColor) ? colors[8] : 0xFF7F7F7F;
+
+        if (mActivity.getWindow() != null && mActivity.getWindow().getDecorView() != null) {
+            mActivity.getWindow().getDecorView().setBackgroundColor(backgroundColor);
         }
+
+        View leftDrawer = mActivity.findViewById(R.id.left_drawer);
+        if (leftDrawer != null) {
+            leftDrawer.setBackgroundColor(backgroundColor);
+        }
+
+        ImageButton settingsButton = mActivity.findViewById(R.id.settings_button);
+        if (settingsButton != null) {
+            ImageViewCompat.setImageTintList(settingsButton, ColorStateList.valueOf(foregroundColor));
+        }
+
+        MaterialButton toggleKeyboardButton = mActivity.findViewById(R.id.toggle_keyboard_button);
+        if (toggleKeyboardButton != null) {
+            toggleKeyboardButton.setTextColor(foregroundColor);
+        }
+
+        MaterialButton newSessionButton = mActivity.findViewById(R.id.new_session_button);
+        if (newSessionButton != null) {
+            newSessionButton.setTextColor(foregroundColor);
+        }
+
+        ViewPager terminalToolbarViewPager = mActivity.getTerminalToolbarViewPager();
+        if (terminalToolbarViewPager != null) {
+            terminalToolbarViewPager.setBackgroundColor(backgroundColor);
+        }
+
+        EditText textInputView = mActivity.findViewById(R.id.terminal_toolbar_text_input);
+        if (textInputView != null) {
+            textInputView.setTextColor(foregroundColor);
+        }
+
+        ExtraKeysView extraKeysView = mActivity.getExtraKeysView();
+        if (extraKeysView != null) {
+            extraKeysView.setBackgroundColor(backgroundColor);
+            extraKeysView.setButtonColors(foregroundColor, cursorColor, backgroundColor, activeBackgroundColor);
+        }
+
+        mActivity.termuxSessionListNotifyUpdated();
     }
 
 }

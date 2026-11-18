@@ -1,19 +1,26 @@
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
+def validNdkDir = rootProject.ext.resolveNdkDir(project)
+def usePrebuiltJni = (validNdkDir == null && file("src/main/prebuiltJniLibs").isDirectory())
+
 android {
     namespace "com.termux.emulator"
 
     compileSdkVersion project.properties.compileSdkVersion.toInteger()
-    ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
+    if (validNdkDir != null || !usePrebuiltJni) {
+        ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
+    }
 
     defaultConfig {
         minSdkVersion project.properties.minSdkVersion.toInteger()
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
 
-        externalNativeBuild {
-            ndkBuild {
-                cFlags "-std=c11", "-Wall", "-Wextra", "-Werror", "-Os", "-fno-stack-protector", "-Wl,--gc-sections"
+        if (!usePrebuiltJni) {
+            externalNativeBuild {
+                ndkBuild {
+                    cFlags "-std=c11", "-Wall", "-Wextra", "-Werror", "-Os", "-fno-stack-protector", "-Wl,--gc-sections"
+                }
             }
         }
 
@@ -29,10 +36,14 @@ android {
         }
     }
 
-    externalNativeBuild {
-        ndkBuild {
-            path "src/main/jni/Android.mk"
+    if (!usePrebuiltJni) {
+        externalNativeBuild {
+            ndkBuild {
+                path "src/main/jni/Android.mk"
+            }
         }
+    } else {
+        sourceSets.main.jniLibs.srcDir("src/main/prebuiltJniLibs")
     }
 
     compileOptions {

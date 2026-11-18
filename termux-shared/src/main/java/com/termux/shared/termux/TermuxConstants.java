@@ -923,6 +923,9 @@ public final class TermuxConstants {
         /** termux-am socket file path */
         public static final String TERMUX_AM_SOCKET_FILE_PATH = APPS_DIR_PATH + "/termux-am/am.sock"; // Default: "/data/data/com.termux/files/apps/com.termux/termux-am/am.sock"
 
+        /** termux-agent socket file path */
+        public static final String TERMUX_AGENT_SOCKET_FILE_PATH = APPS_DIR_PATH + "/termux-agent/agent.sock"; // Default: "/data/data/com.termux/files/apps/com.termux/termux-agent/agent.sock"
+
 
         /** Termux app BuildConfig class name */
         public static final String BUILD_CONFIG_CLASS_NAME = TERMUX_PACKAGE_NAME + ".BuildConfig"; // Default: "com.termux.BuildConfig"
@@ -962,6 +965,9 @@ public final class TermuxConstants {
 
             /** Intent action to make termux request storage permissions */
             public static final String ACTION_REQUEST_PERMISSIONS = TermuxConstants.TERMUX_PACKAGE_NAME + ".app.request_storage_permissions"; // Default: "com.termux.app.request_storage_permissions"
+
+            /** Intent action to make termux request microphone permission */
+            public static final String ACTION_REQUEST_MICROPHONE_PERMISSION = TermuxConstants.TERMUX_PACKAGE_NAME + ".app.request_microphone_permission"; // Default: "com.termux.app.request_microphone_permission"
         }
 
 

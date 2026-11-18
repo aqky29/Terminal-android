@@ -11,6 +11,7 @@ import android.util.Pair;
 import android.view.WindowManager;
 
 import com.termux.R;
+import com.termux.agent.TermuxAgentManager;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.file.TermuxFileUtils;
@@ -220,6 +221,7 @@ final class TermuxInstaller {
 
                     // Recreate env file since termux prefix was wiped earlier
                     TermuxShellEnvironment.writeEnvironmentToFile(activity);
+                    TermuxAgentManager.ensureCliTool();
 
                     activity.runOnUiThread(whenDone);
 

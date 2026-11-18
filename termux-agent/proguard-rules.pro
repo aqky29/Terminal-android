@@ -1,0 +1,3 @@
+-keep class com.termux.agent.server.TermuxAgentServer { *; }
+-keep class com.termux.agent.ITermuxAgentService** { *; }
+-keepclassmembers class * implements android.os.IInterface { *; }

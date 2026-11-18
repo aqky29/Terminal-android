@@ -5,6 +5,7 @@ buildscript {
     }
     dependencies {
         classpath "com.android.tools.build:gradle:8.13.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.10"
     }
 }
 
@@ -14,4 +15,28 @@ allprojects {
         mavenCentral()
         maven { url "https://jitpack.io" }
     }
+}
+
+ext.resolveNdkDir = { Project proj ->
+    def localPropsFile = rootProject.file("local.properties")
+    if (localPropsFile.exists()) {
+        def props = new Properties()
+        localPropsFile.withInputStream { props.load(it) }
+        def ndkProp = props.getProperty("ndk.dir")
+        if (ndkProp && new File(ndkProp, "source.properties").isFile()) {
+            return new File(ndkProp)
+        }
+        def sdkProp = props.getProperty("sdk.dir")
+        if (sdkProp && proj.hasProperty("ndkVersion")) {
+            def sideBySide = new File(sdkProp, "ndk/${proj.property('ndkVersion')}")
+            if (new File(sideBySide, "source.properties").isFile()) {
+                return sideBySide
+            }
+        }
+    }
+    def envNdk = System.getenv("ANDROID_NDK_HOME") ?: System.getenv("ANDROID_NDK_ROOT")
+    if (envNdk && new File(envNdk, "source.properties").isFile()) {
+        return new File(envNdk)
+    }
+    return null
 }

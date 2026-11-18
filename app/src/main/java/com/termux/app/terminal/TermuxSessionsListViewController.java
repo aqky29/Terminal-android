@@ -23,7 +23,9 @@ import com.termux.app.TermuxActivity;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.theme.NightMode;
 import com.termux.shared.theme.ThemeUtils;
+import com.termux.terminal.TerminalColors;
 import com.termux.terminal.TerminalSession;
+import com.termux.terminal.TextStyle;
 
 import java.util.List;
 
@@ -57,13 +59,19 @@ public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession
             return sessionRowView;
         }
 
-        boolean shouldEnableDarkTheme = ThemeUtils.shouldEnableDarkTheme(mActivity, NightMode.getAppNightMode().getName());
+        TerminalSession currentSession = mActivity.getCurrentSession();
+        int[] colors = (currentSession != null && currentSession.getEmulator() != null)
+            ? currentSession.getEmulator().mColors.mCurrentColors
+            : TerminalColors.COLOR_SCHEME.mDefaultColors;
+        int backgroundColor = colors[TextStyle.COLOR_INDEX_BACKGROUND];
+        int foregroundColor = colors[TextStyle.COLOR_INDEX_FOREGROUND];
+        boolean shouldEnableDarkTheme = TerminalColors.getPerceivedBrightnessOfColor(backgroundColor) < 128;
 
-        if (shouldEnableDarkTheme) {
-            sessionTitleView.setBackground(
-                ContextCompat.getDrawable(mActivity, R.drawable.session_background_black_selected)
-            );
-        }
+        sessionTitleView.setBackground(
+            ContextCompat.getDrawable(mActivity, shouldEnableDarkTheme
+                ? R.drawable.session_background_black_selected
+                : R.drawable.session_background_selected)
+        );
 
         String name = sessionAtRow.mSessionName;
         String sessionTitle = sessionAtRow.getTitle();
@@ -86,8 +94,7 @@ public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession
         } else {
             sessionTitleView.setPaintFlags(sessionTitleView.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         }
-        int defaultColor = shouldEnableDarkTheme ? Color.WHITE : Color.BLACK;
-        int color = sessionRunning || sessionAtRow.getExitStatus() == 0 ? defaultColor : Color.RED;
+        int color = sessionRunning || sessionAtRow.getExitStatus() == 0 ? foregroundColor : Color.RED;
         sessionTitleView.setTextColor(color);
         return sessionRowView;
     }

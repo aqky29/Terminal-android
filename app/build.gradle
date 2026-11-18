@@ -12,11 +12,16 @@ ext {
     packageVariant = System.getenv("TERMUX_PACKAGE_VARIANT") ?: "apt-android-7" // Default: "apt-android-7"
 }
 
+def validNdkDir = rootProject.ext.resolveNdkDir(project)
+def usePrebuiltJni = (validNdkDir == null && file("src/main/prebuiltJniLibs").isDirectory())
+
 android {
     namespace "com.termux"
 
     compileSdkVersion project.properties.compileSdkVersion.toInteger()
-    ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
+    if (validNdkDir != null || !usePrebuiltJni) {
+        ndkVersion = System.getenv("JITPACK_NDK_VERSION") ?: project.properties.ndkVersion
+    }
     def appVersionName = System.getenv("TERMUX_APP_VERSION_NAME") ?: ""
     def apkVersionTag = System.getenv("TERMUX_APK_VERSION_TAG") ?: ""
     def splitAPKsForDebugBuilds = System.getenv("TERMUX_SPLIT_APKS_FOR_DEBUG_BUILDS") ?: "1"
@@ -38,6 +43,7 @@ android {
 
         implementation project(":terminal-view")
         implementation project(":termux-shared")
+        implementation project(":termux-agent")
     }
 
     defaultConfig {
@@ -60,9 +66,11 @@ android {
         manifestPlaceholders.TERMUX_TASKER_APP_NAME = "Termux:Tasker"
         manifestPlaceholders.TERMUX_WIDGET_APP_NAME = "Termux:Widget"
 
-        externalNativeBuild {
-            ndkBuild {
-                cFlags "-std=c11", "-Wall", "-Wextra", "-Werror", "-Os", "-fno-stack-protector", "-Wl,--gc-sections"
+        if (!usePrebuiltJni) {
+            externalNativeBuild {
+                ndkBuild {
+                    cFlags "-std=c11", "-Wall", "-Wextra", "-Werror", "-Os", "-fno-stack-protector", "-Wl,--gc-sections"
+                }
             }
         }
 
@@ -106,10 +114,14 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    externalNativeBuild {
-        ndkBuild {
-            path "src/main/cpp/Android.mk"
+    if (!usePrebuiltJni) {
+        externalNativeBuild {
+            ndkBuild {
+                path "src/main/cpp/Android.mk"
+            }
         }
+    } else {
+        sourceSets.main.jniLibs.srcDir("src/main/prebuiltJniLibs")
     }
 
     lint {

@@ -35,6 +35,7 @@ import java.util.List;
 public class PermissionUtils {
 
     public static final int REQUEST_GRANT_STORAGE_PERMISSION = 1000;
+    public static final int REQUEST_GRANT_MICROPHONE_PERMISSION = 1001;
 
     public static final int REQUEST_DISABLE_BATTERY_OPTIMIZATIONS = 2000;
     public static final int REQUEST_GRANT_DISPLAY_OVER_OTHER_APPS_PERMISSION = 2001;
@@ -435,6 +436,61 @@ public class PermissionUtils {
         }
 
         return true;
+    }
+
+
+
+    /**
+     * Check if {@link Manifest.permission#RECORD_AUDIO} permission has been granted.
+     *
+     * @param context The context for operations.
+     * @return Returns {@code true} if permission is granted, otherwise {@code false}.
+     */
+    public static boolean checkMicrophonePermission(@NonNull Context context) {
+        return checkPermission(context, Manifest.permission.RECORD_AUDIO);
+    }
+
+    /**
+     * Request user to grant {@link Manifest.permission#RECORD_AUDIO} permission to the app.
+     *
+     * @param context The context for operations. It must be an instance of {@link Activity} or
+     * {@link AppCompatActivity}.
+     * @param requestCode The request code to use while asking for permission. It must be `>=0` or
+     *                    will fail silently and will log an exception.
+     * @return Returns {@code true} if requesting the permission was successful, otherwise {@code false}.
+     */
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    public static boolean requestMicrophonePermission(@NonNull Context context, int requestCode) {
+        Logger.logInfo(LOG_TAG, "Requesting microphone permission");
+        return requestPermission(context, Manifest.permission.RECORD_AUDIO, requestCode);
+    }
+
+    /**
+     * Check if {@link Manifest.permission#RECORD_AUDIO} permission has been granted, and request it
+     * if missing when {@code requestCode} is `>=0`.
+     *
+     * @param context The context for operations.
+     * @param requestCode The request code to use while asking for permission.
+     * @param showErrorMessage If an error message toast should be shown if permission is not granted.
+     * @return Returns {@code true} if permission is granted, otherwise {@code false}.
+     */
+    public static boolean checkAndRequestMicrophonePermission(@NonNull Context context,
+                                                              int requestCode,
+                                                              boolean showErrorMessage) {
+        if (checkMicrophonePermission(context)) {
+            return true;
+        }
+
+        String errmsg = context.getString(R.string.msg_microphone_permission_not_granted);
+        Logger.logError(LOG_TAG, errmsg);
+        if (showErrorMessage)
+            Logger.showToast(context, errmsg, false);
+
+        if (requestCode < 0 || Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+            return false;
+
+        requestMicrophonePermission(context, requestCode);
+        return false;
     }
 
 
