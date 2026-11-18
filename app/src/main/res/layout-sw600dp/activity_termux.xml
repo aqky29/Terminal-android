@@ -5,7 +5,6 @@
     android:id="@+id/activity_termux_root_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/terminal_bg_canvas"
     android:fitsSystemWindows="true"
     android:orientation="vertical">
 

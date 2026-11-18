@@ -600,6 +600,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (mActivity.getWindow() != null && mActivity.getWindow().getDecorView() != null) {
             mActivity.getWindow().getDecorView().setBackgroundColor(backgroundColor);
         }
+        if (mActivity.getTermuxActivityRootView() != null) {
+            mActivity.getTermuxActivityRootView().setBackgroundColor(backgroundColor);
+        }
 
         View leftDrawer = mActivity.findViewById(R.id.left_drawer);
         if (leftDrawer != null && backgroundColor != Color.BLACK) {
