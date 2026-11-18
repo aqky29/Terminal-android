@@ -51,7 +51,14 @@ public class TerminalExtraKeys implements ExtraKeysView.IExtraKeysView {
         }
     }
 
+    protected TerminalView getTargetTerminalView() {
+        return mTerminalView;
+    }
+
     protected void onTerminalExtraKeyButtonClick(View view, String key, boolean ctrlDown, boolean altDown, boolean shiftDown, boolean fnDown) {
+        TerminalView targetView = getTargetTerminalView();
+        if (targetView == null) return;
+
         if (PRIMARY_KEY_CODES_FOR_STRINGS.containsKey(key)) {
             Integer keyCode = PRIMARY_KEY_CODES_FOR_STRINGS.get(key);
             if (keyCode == null) return;
@@ -62,15 +69,15 @@ public class TerminalExtraKeys implements ExtraKeysView.IExtraKeysView {
             if (fnDown) metaState |= KeyEvent.META_FUNCTION_ON;
 
             KeyEvent keyEvent = new KeyEvent(0, 0, KeyEvent.ACTION_UP, keyCode, 0, metaState);
-            mTerminalView.onKeyDown(keyCode, keyEvent);
+            targetView.onKeyDown(keyCode, keyEvent);
         } else {
             // not a control char
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 key.codePoints().forEach(codePoint -> {
-                    mTerminalView.inputCodePoint(TerminalView.KEY_EVENT_SOURCE_VIRTUAL_KEYBOARD, codePoint, ctrlDown, altDown);
+                    targetView.inputCodePoint(TerminalView.KEY_EVENT_SOURCE_VIRTUAL_KEYBOARD, codePoint, ctrlDown, altDown);
                 });
             } else {
-                TerminalSession session = mTerminalView.getCurrentSession();
+                TerminalSession session = targetView.getCurrentSession();
                 if (session != null && key.length() > 0)
                     session.write(key);
             }

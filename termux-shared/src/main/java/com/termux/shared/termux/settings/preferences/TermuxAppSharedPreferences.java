@@ -258,4 +258,45 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_CRASH_REPORT_NOTIFICATIONS_ENABLED, value, false);
     }
 
+    public String getColorPreset() {
+        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_COLOR_PRESET, TERMUX_APP.DEFAULT_VALUE_COLOR_PRESET, true);
+    }
+
+    public void setColorPreset(String value) {
+        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_COLOR_PRESET, value, false);
+    }
+
+    public boolean isSyncChromeThemeEnabled() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_SYNC_CHROME_THEME, TERMUX_APP.DEFAULT_VALUE_SYNC_CHROME_THEME);
+    }
+
+    public void setSyncChromeThemeEnabled(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_SYNC_CHROME_THEME, value, false);
+    }
+
+    public boolean isUiAnimationsEnabled() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_UI_ANIMATIONS_ENABLED, TERMUX_APP.DEFAULT_VALUE_UI_ANIMATIONS_ENABLED);
+    }
+
+    public void setUiAnimationsEnabled(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_UI_ANIMATIONS_ENABLED, value, false);
+    }
+
+    public boolean shouldShowSplitPaneHeader() {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_SHOW_SPLIT_PANE_HEADER, TERMUX_APP.DEFAULT_VALUE_SHOW_SPLIT_PANE_HEADER);
+    }
+
+    public void setShowSplitPaneHeader(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_SHOW_SPLIT_PANE_HEADER, value, false);
+    }
+
+    public int getDefaultSplitRatio() {
+        int ratio = SharedPreferenceUtils.getInt(mSharedPreferences, TERMUX_APP.KEY_DEFAULT_SPLIT_RATIO, TERMUX_APP.DEFAULT_VALUE_DEFAULT_SPLIT_RATIO);
+        return DataUtils.clamp(ratio, 25, 75);
+    }
+
+    public void setDefaultSplitRatio(int value) {
+        SharedPreferenceUtils.setInt(mSharedPreferences, TERMUX_APP.KEY_DEFAULT_SPLIT_RATIO, DataUtils.clamp(value, 25, 75), false);
+    }
+
 }

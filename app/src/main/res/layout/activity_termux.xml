@@ -79,6 +79,7 @@
     </LinearLayout>
 
     <View
+        android:id="@+id/top_chrome_divider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="@color/terminal_border_hairline" />

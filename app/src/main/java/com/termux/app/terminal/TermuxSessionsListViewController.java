@@ -60,18 +60,10 @@ public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession
         }
 
         TerminalSession currentSession = mActivity.getCurrentSession();
-        int[] colors = (currentSession != null && currentSession.getEmulator() != null)
-            ? currentSession.getEmulator().mColors.mCurrentColors
-            : TerminalColors.COLOR_SCHEME.mDefaultColors;
-        int backgroundColor = colors[TextStyle.COLOR_INDEX_BACKGROUND];
-        int foregroundColor = colors[TextStyle.COLOR_INDEX_FOREGROUND];
-        boolean shouldEnableDarkTheme = TerminalColors.getPerceivedBrightnessOfColor(backgroundColor) < 128;
-
-        sessionTitleView.setBackground(
-            ContextCompat.getDrawable(mActivity, shouldEnableDarkTheme
-                ? R.drawable.session_background_black_selected
-                : R.drawable.session_background_selected)
-        );
+        com.termux.app.theme.TerminalChromePalette palette = mActivity.getActiveChromePalette();
+        boolean isSelected = (sessionAtRow == currentSession);
+        sessionTitleView.setBackground(palette.createRippleBackground(
+            isSelected ? palette.tabActiveBg : android.graphics.Color.TRANSPARENT));
 
         String name = sessionAtRow.mSessionName;
         String sessionTitle = sessionAtRow.getTitle();
@@ -94,7 +86,9 @@ public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession
         } else {
             sessionTitleView.setPaintFlags(sessionTitleView.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         }
-        int color = sessionRunning || sessionAtRow.getExitStatus() == 0 ? foregroundColor : Color.RED;
+        int color = sessionRunning || sessionAtRow.getExitStatus() == 0
+            ? (isSelected ? palette.textPrimary : palette.textSecondary)
+            : Color.RED;
         sessionTitleView.setTextColor(color);
         return sessionRowView;
     }

@@ -83,9 +83,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             termuxSessionListNotifyUpdated();
         }
 
+        checkForFontAndColors();
+
         // The current terminal session may have changed while being away, force
         // a refresh of the displayed terminal.
         mActivity.getTerminalView().onScreenUpdated();
+        if (mActivity.isSplitPaneActive() && mActivity.getSecondaryTerminalView() != null) {
+            mActivity.getSecondaryTerminalView().onScreenUpdated();
+        }
     }
 
     /**
@@ -208,8 +213,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (!mActivity.isVisible()) return;
 
         String text = ShareUtils.getTextStringFromClipboardIfSet(mActivity, true);
-        if (text != null)
-            mActivity.getTerminalView().mEmulator.paste(text);
+        com.termux.view.TerminalView activeView = mActivity.getTerminalView();
+        if (text != null && activeView != null && activeView.mEmulator != null)
+            activeView.mEmulator.paste(text);
     }
 
     @Override
@@ -592,10 +598,11 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             ? session.getEmulator().mColors.mCurrentColors
             : TerminalColors.COLOR_SCHEME.mDefaultColors;
 
+        com.termux.app.theme.TerminalChromePalette palette = mActivity.getActiveChromePalette();
+        mActivity.applyChromePalette(palette);
+
         int backgroundColor = colors[TextStyle.COLOR_INDEX_BACKGROUND];
-        int foregroundColor = colors[TextStyle.COLOR_INDEX_FOREGROUND];
         int cursorColor = colors[TextStyle.COLOR_INDEX_CURSOR];
-        int activeBackgroundColor = (colors[8] != backgroundColor) ? colors[8] : 0xFF7F7F7F;
 
         if (mActivity.getWindow() != null && mActivity.getWindow().getDecorView() != null) {
             mActivity.getWindow().getDecorView().setBackgroundColor(backgroundColor);
@@ -605,39 +612,39 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         }
 
         View leftDrawer = mActivity.findViewById(R.id.left_drawer);
-        if (leftDrawer != null && backgroundColor != Color.BLACK) {
-            leftDrawer.setBackgroundColor(backgroundColor);
+        if (leftDrawer != null) {
+            leftDrawer.setBackgroundColor(palette.drawerBg);
         }
 
         ImageButton settingsButton = mActivity.findViewById(R.id.settings_button);
         if (settingsButton != null) {
-            ImageViewCompat.setImageTintList(settingsButton, ColorStateList.valueOf(foregroundColor));
+            ImageViewCompat.setImageTintList(settingsButton, ColorStateList.valueOf(palette.textPrimary));
         }
 
         MaterialButton toggleKeyboardButton = mActivity.findViewById(R.id.toggle_keyboard_button);
         if (toggleKeyboardButton != null) {
-            toggleKeyboardButton.setTextColor(foregroundColor);
+            toggleKeyboardButton.setTextColor(palette.textPrimary);
         }
 
         MaterialButton newSessionButton = mActivity.findViewById(R.id.new_session_button);
         if (newSessionButton != null) {
-            newSessionButton.setTextColor(foregroundColor);
+            newSessionButton.setTextColor(palette.textPrimary);
         }
 
         ViewPager terminalToolbarViewPager = mActivity.getTerminalToolbarViewPager();
         if (terminalToolbarViewPager != null) {
-            terminalToolbarViewPager.setBackgroundColor(backgroundColor);
+            terminalToolbarViewPager.setBackgroundColor(palette.extraKeysBg);
         }
 
         EditText textInputView = mActivity.findViewById(R.id.terminal_toolbar_text_input);
         if (textInputView != null) {
-            textInputView.setTextColor(foregroundColor);
+            textInputView.setTextColor(palette.textPrimary);
         }
 
         ExtraKeysView extraKeysView = mActivity.getExtraKeysView();
         if (extraKeysView != null) {
-            extraKeysView.setBackgroundColor(backgroundColor);
-            extraKeysView.setButtonColors(foregroundColor, cursorColor, backgroundColor, activeBackgroundColor);
+            extraKeysView.setBackgroundColor(palette.extraKeysBg);
+            extraKeysView.setButtonColors(palette.textPrimary, cursorColor, palette.extraKeysBg, palette.extraKeysActiveBg);
         }
 
         mActivity.termuxSessionListNotifyUpdated();

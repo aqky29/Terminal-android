@@ -102,11 +102,17 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
      * Should be called when mActivity.onStart() is called
      */
     public void onStart() {
-        // Set {@link TerminalView#TERMINAL_VIEW_KEY_LOGGING_ENABLED} value
-        // Also required if user changed the preference from {@link TermuxSettings} activity and returns
+        onReloadProperties();
+
+        int fontSize = mActivity.getPreferences().getFontSize();
+        boolean keepScreenOn = mActivity.getPreferences().shouldKeepScreenOn();
         boolean isTerminalViewKeyLoggingEnabled = mActivity.getPreferences().isTerminalViewKeyLoggingEnabled();
+        mActivity.getPrimaryTerminalView().setTextSize(fontSize);
+        mActivity.getPrimaryTerminalView().setKeepScreenOn(keepScreenOn);
         mActivity.getPrimaryTerminalView().setIsTerminalViewKeyLoggingEnabled(isTerminalViewKeyLoggingEnabled);
         if (mActivity.getSecondaryTerminalView() != null) {
+            mActivity.getSecondaryTerminalView().setTextSize(fontSize);
+            mActivity.getSecondaryTerminalView().setKeepScreenOn(keepScreenOn);
             mActivity.getSecondaryTerminalView().setIsTerminalViewKeyLoggingEnabled(isTerminalViewKeyLoggingEnabled);
         }
 
@@ -629,6 +635,13 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
         View.OnFocusChangeListener focusListener = new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View view, boolean hasFocus) {
+                if (hasFocus && mActivity.isSplitPaneActive()) {
+                    if (view == mActivity.getSecondaryTerminalView() && !mActivity.isSecondaryPaneFocused()) {
+                        mActivity.setActivePane(true);
+                    } else if (view == mActivity.getPrimaryTerminalView() && mActivity.isSecondaryPaneFocused()) {
+                        mActivity.setActivePane(false);
+                    }
+                }
                 // Force show soft keyboard if any TerminalView or toolbar text input view has
                 // focus and close it if none do
                 boolean anyTerminalHasFocus = hasFocus || mActivity.hasAnyTerminalViewFocus();

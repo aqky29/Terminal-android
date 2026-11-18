@@ -180,6 +180,26 @@ public final class TermuxPreferenceConstants {
         public static final String KEY_CRASH_REPORT_NOTIFICATIONS_ENABLED = "crash_report_notifications_enabled";
         public static final boolean DEFAULT_VALUE_CRASH_REPORT_NOTIFICATIONS_ENABLED = true;
 
+        /** Selected built-in color preset id (or "custom"). */
+        public static final String KEY_COLOR_PRESET = "color_preset";
+        public static final String DEFAULT_VALUE_COLOR_PRESET = "dark-plus";
+
+        /** Whether window chrome, tabs, split headers, and extra keys sync colors with the terminal theme. */
+        public static final String KEY_SYNC_CHROME_THEME = "sync_chrome_theme";
+        public static final boolean DEFAULT_VALUE_SYNC_CHROME_THEME = true;
+
+        /** Whether subtle UI transition animations are enabled. */
+        public static final String KEY_UI_ANIMATIONS_ENABLED = "ui_animations_enabled";
+        public static final boolean DEFAULT_VALUE_UI_ANIMATIONS_ENABLED = true;
+
+        /** Whether split pane active/focus header bars are shown in split mode. */
+        public static final String KEY_SHOW_SPLIT_PANE_HEADER = "show_split_pane_header";
+        public static final boolean DEFAULT_VALUE_SHOW_SPLIT_PANE_HEADER = true;
+
+        /** Default initial split ratio percentage (25-75) for tablet left pane. */
+        public static final String KEY_DEFAULT_SPLIT_RATIO = "default_split_ratio";
+        public static final int DEFAULT_VALUE_DEFAULT_SPLIT_RATIO = 50;
+
     }
 
 

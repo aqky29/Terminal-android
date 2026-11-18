@@ -148,6 +148,16 @@
 
     <!-- Termux Settings -->
     <string name="title_activity_termux_settings">&TERMUX_APP_NAME; Settings</string>
+    <string name="action_back">Back</string>
+    <string name="settings_header_title">Settings</string>
+    <string name="settings_done">Done</string>
+    <string name="settings_reset_default">Reset Default</string>
+    <string name="settings_reset_short">Reset</string>
+    <string name="settings_search_hint">Search settings...</string>
+    <string name="settings_reset_confirm_title">Reset Settings</string>
+    <string name="settings_reset_confirm_message">Restore all Terminal appearance, layout, and behavior settings back to defaults?</string>
+    <string name="settings_reset_done">Settings restored to defaults</string>
+    <string name="settings_copied_info">Build info copied to clipboard</string>
 
     <!-- Termux App Preferences -->
     <string name="termux_preferences_title">&TERMUX_APP_NAME;</string>

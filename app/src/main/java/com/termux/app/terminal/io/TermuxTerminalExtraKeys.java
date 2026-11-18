@@ -81,6 +81,12 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
         return mExtraKeysInfo;
     }
 
+    @Override
+    protected TerminalView getTargetTerminalView() {
+        TerminalView activeView = mActivity != null ? mActivity.getTerminalView() : null;
+        return activeView != null ? activeView : super.getTargetTerminalView();
+    }
+
     @SuppressLint("RtlHardcoded")
     @Override
     public void onTerminalExtraKeyButtonClick(View view, String key, boolean ctrlDown, boolean altDown, boolean shiftDown, boolean fnDown) {

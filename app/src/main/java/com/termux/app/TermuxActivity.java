@@ -9,6 +9,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -42,6 +45,7 @@ import com.termux.app.api.file.FileReceiverActivity;
 import com.termux.app.terminal.TermuxActivityRootView;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.io.TermuxTerminalExtraKeys;
+import com.termux.app.theme.TerminalChromePalette;
 import com.termux.shared.activities.ReportActivity;
 import com.termux.shared.activity.ActivityUtils;
 import com.termux.shared.activity.media.AppCompatActivityUtils;
@@ -75,6 +79,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.viewpager.widget.ViewPager;
 
@@ -265,6 +272,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mIsInvalidState = true;
             return;
         }
+        if (savedInstanceState == null) {
+            mSplitRatio = mPreferences.getDefaultSplitRatio() / 100f;
+        }
 
         setMargins();
 
@@ -336,6 +346,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         mIsVisible = true;
 
+        reloadProperties();
+        if (!isSplitPaneActive() && mPreferences != null) {
+            mSplitRatio = mPreferences.getDefaultSplitRatio() / 100f;
+        }
+
+        ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
+        if (terminalToolbarViewPager != null && mPreferences != null) {
+            terminalToolbarViewPager.setVisibility(mPreferences.shouldShowTerminalToolbar() ? View.VISIBLE : View.GONE);
+        }
+
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onStart();
 
@@ -345,6 +365,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mPreferences.isTerminalMarginAdjustmentEnabled())
             addTermuxActivityRootViewGlobalLayoutListener();
 
+        applySplitVisibility(false);
         registerTermuxActivityBroadcastReceiver();
     }
 
@@ -611,7 +632,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         final boolean showNow = mPreferences.toogleShowTerminalToolbar();
         Logger.showToast(this, (showNow ? getString(R.string.msg_enabling_terminal_toolbar) : getString(R.string.msg_disabling_terminal_toolbar)), true);
         ViewGroup rootRelative = findViewById(R.id.activity_termux_root_relative_layout);
-        if (rootRelative != null) {
+        if (rootRelative != null && mPreferences.isUiAnimationsEnabled()) {
             TransitionSet transition = new TransitionSet()
                 .addTransition(new ChangeBounds())
                 .addTransition(new Fade())
@@ -752,14 +773,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
+        if (v == mSecondaryTerminalView) {
+            setActivePane(true);
+        } else if (v == mTerminalView) {
+            setActivePane(false);
+        }
         TerminalSession currentSession = getCurrentSession();
-        if (currentSession == null) return;
+        TerminalView activeView = getTerminalView();
+        if (currentSession == null || activeView == null) return;
 
-        boolean autoFillEnabled = mTerminalView.isAutoFillEnabled();
+        boolean autoFillEnabled = activeView.isAutoFillEnabled();
 
         menu.add(Menu.NONE, CONTEXT_MENU_SELECT_URL_ID, Menu.NONE, R.string.action_select_url);
         menu.add(Menu.NONE, CONTEXT_MENU_SHARE_TRANSCRIPT_ID, Menu.NONE, R.string.action_share_transcript);
-        if (!DataUtils.isNullOrEmpty(mTerminalView.getStoredSelectedText()))
+        if (!DataUtils.isNullOrEmpty(activeView.getStoredSelectedText()))
             menu.add(Menu.NONE, CONTEXT_MENU_SHARE_SELECTED_TEXT, Menu.NONE, R.string.action_share_selected_text);
         if (autoFillEnabled)
             menu.add(Menu.NONE, CONTEXT_MENU_AUTOFILL_USERNAME, Menu.NONE, R.string.action_autofill_username);
@@ -779,13 +806,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     /** Hook system menu to show context menu instead. */
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        mTerminalView.showContextMenu();
+        TerminalView activeView = getTerminalView();
+        if (activeView != null) activeView.showContextMenu();
         return false;
     }
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
         TerminalSession session = getCurrentSession();
+        TerminalView activeView = getTerminalView();
 
         switch (item.getItemId()) {
             case CONTEXT_MENU_SELECT_URL_ID:
@@ -798,10 +827,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mTermuxTerminalViewClient.shareSelectedText();
                 return true;
             case CONTEXT_MENU_AUTOFILL_USERNAME:
-                mTerminalView.requestAutoFillUsername();
+                if (activeView != null) activeView.requestAutoFillUsername();
                 return true;
             case CONTEXT_MENU_AUTOFILL_PASSWORD:
-                mTerminalView.requestAutoFillPassword();
+                if (activeView != null) activeView.requestAutoFillPassword();
                 return true;
             case CONTEXT_MENU_RESET_TERMINAL_ID:
                 onResetTerminalSession(session);
@@ -836,7 +865,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void onContextMenuClosed(Menu menu) {
         super.onContextMenuClosed(menu);
         // onContextMenuClosed() is triggered twice if back button is pressed to dismiss instead of tap for some reason
-        mTerminalView.onContextMenuClosed(menu);
+        TerminalView activeView = getTerminalView();
+        if (activeView != null) activeView.onContextMenuClosed(menu);
     }
 
     private void showKillSessionDialog(TerminalSession session) {
@@ -878,13 +908,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
     private void toggleKeepScreenOn() {
-        if (mTerminalView.getKeepScreenOn()) {
-            mTerminalView.setKeepScreenOn(false);
-            mPreferences.setKeepScreenOn(false);
-        } else {
-            mTerminalView.setKeepScreenOn(true);
-            mPreferences.setKeepScreenOn(true);
+        boolean nextKeepScreenOn = !mTerminalView.getKeepScreenOn();
+        mTerminalView.setKeepScreenOn(nextKeepScreenOn);
+        if (mSecondaryTerminalView != null) {
+            mSecondaryTerminalView.setKeepScreenOn(nextKeepScreenOn);
         }
+        mPreferences.setKeepScreenOn(nextKeepScreenOn);
     }
 
 
@@ -1021,13 +1050,96 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
+     * Computes the active UI chrome palette from the current terminal color scheme and user sync setting.
+     */
+    @NonNull
+    public TerminalChromePalette getActiveChromePalette() {
+        TerminalSession session = getCurrentSession();
+        int[] colors = (session != null && session.getEmulator() != null)
+            ? session.getEmulator().mColors.mCurrentColors
+            : com.termux.terminal.TerminalColors.COLOR_SCHEME.mDefaultColors;
+        int backgroundColor = colors[com.termux.terminal.TextStyle.COLOR_INDEX_BACKGROUND];
+        int foregroundColor = colors[com.termux.terminal.TextStyle.COLOR_INDEX_FOREGROUND];
+        boolean syncChrome = mPreferences == null || mPreferences.isSyncChromeThemeEnabled();
+        return TerminalChromePalette.fromTerminalColors(backgroundColor, foregroundColor, syncChrome);
+    }
+
+    /**
+     * Applies harmonized theme colors across system bars, top chrome bar, tablet tab strip, dividers, and icons.
+     */
+    public void applyChromePalette(@NonNull TerminalChromePalette palette) {
+        if (getWindow() != null) {
+            getWindow().setStatusBarColor(palette.statusBg);
+            getWindow().setNavigationBarColor(palette.canvasBg);
+            WindowInsetsControllerCompat insetsController = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            if (insetsController != null) {
+                insetsController.setAppearanceLightStatusBars(palette.isLightBackground);
+                insetsController.setAppearanceLightNavigationBars(palette.isLightBackground);
+            }
+        }
+
+        View topChromeBar = findViewById(R.id.top_chrome_bar);
+        if (topChromeBar != null) topChromeBar.setBackgroundColor(palette.topChromeBg);
+
+        View topDivider = findViewById(R.id.top_chrome_divider);
+        if (topDivider != null) topDivider.setBackgroundColor(palette.borderHairline);
+
+        View tabsDivider = findViewById(R.id.session_tabs_divider);
+        if (tabsDivider != null) tabsDivider.setBackgroundColor(palette.borderHairline);
+
+        View sessionTabsBar = findViewById(R.id.session_tabs_bar);
+        if (sessionTabsBar != null) sessionTabsBar.setBackgroundColor(palette.tabStripBg);
+
+        LinearLayout tabsContainer = findViewById(R.id.session_tabs_container);
+        if (tabsContainer != null) {
+            GradientDrawable dividerDrawable = new GradientDrawable();
+            dividerDrawable.setSize(Math.max(1, Math.round(getResources().getDisplayMetrics().density)), 1);
+            dividerDrawable.setColor(palette.borderHairline);
+            tabsContainer.setDividerDrawable(dividerDrawable);
+        }
+
+        View splitDividerLine = findViewById(R.id.split_divider_line);
+        if (splitDividerLine != null) splitDividerLine.setBackgroundColor(palette.dividerColor);
+
+        android.widget.ImageView brandIcon = findViewById(R.id.top_brand_icon);
+        if (brandIcon != null) ImageViewCompat.setImageTintList(brandIcon, ColorStateList.valueOf(palette.textSecondary));
+
+        TextView brandLabel = findViewById(R.id.top_brand_label);
+        if (brandLabel != null) brandLabel.setTextColor(palette.textSecondary);
+
+        TextView activeTitleView = findViewById(R.id.active_session_title);
+        if (activeTitleView != null) activeTitleView.setTextColor(palette.textPrimary);
+
+        ImageButton drawerButton = findViewById(R.id.open_drawer_button);
+        if (drawerButton != null) ImageViewCompat.setImageTintList(drawerButton, ColorStateList.valueOf(palette.textPrimary));
+
+        ImageButton keyboardButton = findViewById(R.id.top_keyboard_button);
+        if (keyboardButton != null) ImageViewCompat.setImageTintList(keyboardButton, ColorStateList.valueOf(palette.textSecondary));
+
+        ImageButton settingsButton = findViewById(R.id.top_settings_button);
+        if (settingsButton != null) ImageViewCompat.setImageTintList(settingsButton, ColorStateList.valueOf(palette.textSecondary));
+
+        ImageButton newSessionButton = findViewById(R.id.top_new_session_button);
+        if (newSessionButton != null) {
+            ImageViewCompat.setImageTintList(newSessionButton, ColorStateList.valueOf(palette.textPrimary));
+            if (findViewById(R.id.session_tabs_bar) != null) {
+                newSessionButton.setBackground(palette.createRippleBackground(palette.newTabBg));
+            }
+        }
+    }
+
+    /**
      * Syncs the active session title in the top chrome bar and the tablet horizontal session tabs.
      */
     private void updateSessionChrome() {
+        TerminalChromePalette palette = getActiveChromePalette();
+        applyChromePalette(palette);
+
         TerminalSession currentSession = getCurrentSession();
         TextView activeTitleView = findViewById(R.id.active_session_title);
         if (activeTitleView != null) {
             activeTitleView.setText(formatSessionDisplayLabel(currentSession, -1));
+            activeTitleView.setTextColor(palette.textPrimary);
         }
 
         LinearLayout tabsContainer = findViewById(R.id.session_tabs_container);
@@ -1039,6 +1151,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         int scrollWidth = tabsScroll != null ? tabsScroll.getWidth() : 0;
         int minTabWidthPx = Math.round(140 * getResources().getDisplayMetrics().density);
         boolean stretchTabs = sessions.isEmpty() || scrollWidth <= 0 || (sessions.size() * minTabWidthPx <= scrollWidth);
+        TerminalSession primarySession = mTerminalView != null ? mTerminalView.getCurrentSession() : null;
+        TerminalSession secondarySession = isSplitPaneActive() && mSecondaryTerminalView != null
+            ? mSecondaryTerminalView.getCurrentSession() : null;
 
         for (int i = 0; i < sessions.size(); i++) {
             final TerminalSession session = sessions.get(i).getTerminalSession();
@@ -1050,24 +1165,46 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 : new LinearLayout.LayoutParams(minTabWidthPx, ViewGroup.LayoutParams.MATCH_PARENT);
             tabView.setLayoutParams(tabParams);
             boolean isActive = (session == currentSession);
+            boolean isVisibleInOtherPane = !isActive && isSplitPaneActive() &&
+                (session == primarySession || session == secondarySession);
             boolean isRunning = session.isRunning();
 
-            tabView.setBackgroundResource(isActive ? R.drawable.bg_tab_active : R.drawable.bg_tab_inactive);
+            int tabBg = isActive
+                ? palette.tabActiveBg
+                : (isVisibleInOtherPane ? palette.tabOtherPaneBg : palette.tabStripBg);
+            tabView.setBackground(palette.createRippleBackground(tabBg));
 
             View dotView = tabView.findViewById(R.id.session_tab_dot);
+            GradientDrawable dotDrawable = new GradientDrawable();
+            dotDrawable.setShape(GradientDrawable.OVAL);
+            int dotSize = Math.round(6 * getResources().getDisplayMetrics().density);
+            dotDrawable.setSize(dotSize, dotSize);
             if (!isRunning && session.getExitStatus() != 0) {
-                dotView.setBackgroundResource(R.drawable.dot_session_error);
+                dotDrawable.setColor(ContextCompat.getColor(this, R.color.terminal_status_error));
             } else {
-                dotView.setBackgroundResource(isActive ? R.drawable.dot_session_active : R.drawable.dot_session_inactive);
+                dotDrawable.setColor(isActive ? palette.textPrimary : palette.textSecondary);
             }
+            dotView.setBackground(dotDrawable);
 
             TextView tabTitle = tabView.findViewById(R.id.session_tab_title);
             tabTitle.setText(formatSessionDisplayLabel(session, i));
-            tabTitle.setTextColor(ContextCompat.getColor(this,
-                isActive ? R.color.terminal_text_primary : R.color.terminal_text_secondary));
+            tabTitle.setTextColor(isActive ? palette.textPrimary : palette.textSecondary);
             tabTitle.setTypeface(null, isActive ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
 
+            ImageButton closeTabButton = tabView.findViewById(R.id.close_tab_button);
+            ImageViewCompat.setImageTintList(closeTabButton, ColorStateList.valueOf(palette.textSecondary));
+
             tabView.setOnClickListener(v -> {
+                if (isSplitPaneActive()) {
+                    if (mTerminalView != null && mTerminalView.getCurrentSession() == session) {
+                        setActivePane(false);
+                        return;
+                    }
+                    if (mSecondaryTerminalView != null && mSecondaryTerminalView.getCurrentSession() == session) {
+                        setActivePane(true);
+                        return;
+                    }
+                }
                 if (mTermuxTerminalSessionActivityClient != null)
                     mTermuxTerminalSessionActivityClient.setCurrentSession(session);
             });
@@ -1076,7 +1213,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 return true;
             });
 
-            ImageButton closeTabButton = tabView.findViewById(R.id.close_tab_button);
             closeTabButton.setOnClickListener(v -> {
                 if (session.isRunning()) {
                     showKillSessionDialog(session);
@@ -1298,7 +1434,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         View paneRightContainer = findViewById(R.id.pane_right_container);
         if (panesContainer == null) return;
 
-        if (animate) {
+        if (animate && (mPreferences == null || mPreferences.isUiAnimationsEnabled())) {
             TransitionSet transition = new TransitionSet()
                 .addTransition(new ChangeBounds())
                 .addTransition(new Fade())
@@ -1308,7 +1444,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
 
         boolean show = isSplitPaneActive();
-        if (paneLeftBar != null) paneLeftBar.setVisibility(show ? View.VISIBLE : View.GONE);
+        boolean showHeaders = show && (mPreferences == null || mPreferences.shouldShowSplitPaneHeader());
+        if (paneLeftBar != null) paneLeftBar.setVisibility(showHeaders ? View.VISIBLE : View.GONE);
         if (splitDivider != null) splitDivider.setVisibility(show ? View.VISIBLE : View.GONE);
         if (paneRightContainer != null) paneRightContainer.setVisibility(show ? View.VISIBLE : View.GONE);
         applySplitWeights();
@@ -1360,31 +1497,48 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void updateSplitPaneChrome() {
         if (!isSplitPaneActive()) return;
         boolean secondaryFocused = isSecondaryPaneFocused();
+        boolean showHeaders = mPreferences == null || mPreferences.shouldShowSplitPaneHeader();
+        TerminalChromePalette palette = getActiveChromePalette();
+        int dotSize = Math.round(6 * getResources().getDisplayMetrics().density);
 
         View paneLeftBar = findViewById(R.id.pane_left_bar);
         View paneLeftDot = findViewById(R.id.pane_left_dot);
         TextView paneLeftLabel = findViewById(R.id.pane_left_label);
         TextView paneLeftFocus = findViewById(R.id.pane_left_focus);
         if (paneLeftBar != null && paneLeftDot != null && paneLeftLabel != null && paneLeftFocus != null) {
-            paneLeftBar.setBackgroundColor(!secondaryFocused ? 0xFF2D2D2D : 0xFF212121);
-            paneLeftDot.setBackgroundResource(!secondaryFocused ? R.drawable.dot_session_active : R.drawable.dot_session_inactive);
+            paneLeftBar.setVisibility(showHeaders ? View.VISIBLE : View.GONE);
+            paneLeftBar.setBackgroundColor(!secondaryFocused ? palette.paneBarActiveBg : palette.paneBarInactiveBg);
+            GradientDrawable leftDot = new GradientDrawable();
+            leftDot.setShape(GradientDrawable.OVAL);
+            leftDot.setSize(dotSize, dotSize);
+            leftDot.setColor(!secondaryFocused ? palette.textPrimary : palette.textSecondary);
+            paneLeftDot.setBackground(leftDot);
             paneLeftLabel.setText(formatSessionDisplayLabel(mTerminalView != null ? mTerminalView.getCurrentSession() : null, -1));
-            paneLeftLabel.setTextColor(ContextCompat.getColor(this,
-                !secondaryFocused ? R.color.terminal_text_primary : R.color.terminal_text_secondary));
+            paneLeftLabel.setTextColor(!secondaryFocused ? palette.textPrimary : palette.textSecondary);
             paneLeftFocus.setText(!secondaryFocused ? getString(R.string.label_pane_active) : "");
+            paneLeftFocus.setTextColor(!secondaryFocused ? palette.textPrimary : palette.textSecondary);
         }
 
         View paneRightBar = findViewById(R.id.pane_right_bar);
         View paneRightDot = findViewById(R.id.pane_right_dot);
         TextView paneRightLabel = findViewById(R.id.pane_right_label);
         TextView paneRightFocus = findViewById(R.id.pane_right_focus);
+        ImageButton closeSplitButton = findViewById(R.id.close_split_button);
         if (paneRightBar != null && paneRightDot != null && paneRightLabel != null && paneRightFocus != null) {
-            paneRightBar.setBackgroundColor(secondaryFocused ? 0xFF2D2D2D : 0xFF212121);
-            paneRightDot.setBackgroundResource(secondaryFocused ? R.drawable.dot_session_active : R.drawable.dot_session_inactive);
+            paneRightBar.setVisibility(showHeaders ? View.VISIBLE : View.GONE);
+            paneRightBar.setBackgroundColor(secondaryFocused ? palette.paneBarActiveBg : palette.paneBarInactiveBg);
+            GradientDrawable rightDot = new GradientDrawable();
+            rightDot.setShape(GradientDrawable.OVAL);
+            rightDot.setSize(dotSize, dotSize);
+            rightDot.setColor(secondaryFocused ? palette.textPrimary : palette.textSecondary);
+            paneRightDot.setBackground(rightDot);
             paneRightLabel.setText(formatSessionDisplayLabel(mSecondaryTerminalView != null ? mSecondaryTerminalView.getCurrentSession() : null, -1));
-            paneRightLabel.setTextColor(ContextCompat.getColor(this,
-                secondaryFocused ? R.color.terminal_text_primary : R.color.terminal_text_secondary));
+            paneRightLabel.setTextColor(secondaryFocused ? palette.textPrimary : palette.textSecondary);
             paneRightFocus.setText(secondaryFocused ? getString(R.string.label_pane_active) : "");
+            paneRightFocus.setTextColor(secondaryFocused ? palette.textPrimary : palette.textSecondary);
+            if (closeSplitButton != null) {
+                ImageViewCompat.setImageTintList(closeSplitButton, ColorStateList.valueOf(palette.textSecondary));
+            }
         }
     }
 
