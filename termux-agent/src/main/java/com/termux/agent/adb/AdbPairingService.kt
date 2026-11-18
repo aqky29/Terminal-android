@@ -36,7 +36,7 @@ class AdbPairingService : Service() {
         nm.createNotificationChannel(
             NotificationChannel(
                 NOTIFICATION_CHANNEL,
-                "Termux Agent ADB Pairing",
+                "Terminal Agent ADB Pairing",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 setSound(null, null)
@@ -119,7 +119,7 @@ class AdbPairingService : Service() {
         }
         return Notification.Builder(this, NOTIFICATION_CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-            .setContentTitle("Pairing Termux Agent with ADB...")
+            .setContentTitle("Pairing Terminal Agent with ADB...")
             .build()
     }
 
@@ -128,10 +128,10 @@ class AdbPairingService : Service() {
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setAutoCancel(true)
         if (success) {
-            builder.setContentTitle("Termux Agent paired")
-                .setContentText("ADB pairing succeeded. You can run `tdev status` in Termux.")
+            builder.setContentTitle("Terminal Agent paired")
+                .setContentText("ADB pairing succeeded. You can run `tdev status` in Terminal.")
         } else {
-            builder.setContentTitle("Termux Agent pairing failed")
+            builder.setContentTitle("Terminal Agent pairing failed")
                 .setContentText(error?.message ?: "Wrong pairing code or port closed")
                 .addAction(retryAction())
         }

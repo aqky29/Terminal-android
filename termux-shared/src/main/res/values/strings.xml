@@ -2,7 +2,7 @@
 
 <!DOCTYPE resources [
     <!ENTITY TERMUX_PACKAGE_NAME "com.termux">
-    <!ENTITY TERMUX_APP_NAME "Termux">
+    <!ENTITY TERMUX_APP_NAME "Terminal">
     <!ENTITY TERMUX_API_APP_NAME "Termux:API">
     <!ENTITY TERMUX_BOOT_APP_NAME "Termux:Boot">
     <!ENTITY TERMUX_FLOAT_APP_NAME "Termux:Float">
@@ -82,7 +82,7 @@
     <string name="msg_report_issue">
         If you want to report this issue, then copy its text from the options menu (3-dots on top right) and post
         an issue on one of the following links.
-        \n\nIf you are posting a Termux app crash report, then please provide details on what you were doing that
+        \n\nIf you are posting a &TERMUX_APP_NAME; app crash report, then please provide details on what you were doing that
         caused the crash and how to reproduce it, if possible.
         \n\nIf you are posting an issue on GitHub, then post it in the repository at which the report belongs at.
         Issues opened or emails sent with **(partial) screenshots** instead of copied text or a file of this report
